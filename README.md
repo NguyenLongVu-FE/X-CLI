@@ -33,6 +33,16 @@ x auth login
 x auth status
 ```
 
+For a remote browser or a headless process that can access the user's login Keychain, print the authorization URL instead of trying to open a browser:
+
+```bash
+X_OAUTH_MANUAL=1 x auth login
+```
+
+Open the printed URL in the browser profile that owns the X account. Keep the CLI running until the browser returns to the local callback.
+
+A pure macOS SSH security session may be denied access to login Keychain secrets even while the desktop is unlocked. In that case, run `x` from the logged-in desktop agent or Terminal, or explicitly unlock the login Keychain for that SSH session. Never copy tokens into a plaintext file as a workaround.
+
 Tokens are stored in macOS Keychain under service `com.nguyenlongvu.x-cli`. Do not put tokens in environment files or the repository.
 
 Required scopes are `tweet.read`, `tweet.write`, `users.read`, `like.read`, `like.write`, `follows.read`, `follows.write`, and `offline.access`.

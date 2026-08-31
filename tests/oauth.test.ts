@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { OAuthClient, REQUIRED_SCOPES } from '../src/auth/oauth.js';
+import { OAuthClient, REQUIRED_SCOPES, createBrowserOpener } from '../src/auth/oauth.js';
 import type { CredentialStore, OAuthTokens } from '../src/auth/credentials.js';
 
 function memoryStore(initial: OAuthTokens | null = null): CredentialStore & { value: OAuthTokens | null } {
@@ -13,6 +13,21 @@ function memoryStore(initial: OAuthTokens | null = null): CredentialStore & { va
 }
 
 describe('OAuth client', () => {
+  it('prints the authorization URL instead of opening a browser in manual mode', async () => {
+    const writes: string[] = [];
+    let opened = false;
+    const openBrowser = createBrowserOpener({
+      manual: true,
+      write: (value) => { writes.push(value); },
+      open: async () => { opened = true; }
+    });
+
+    await openBrowser('https://x.com/i/oauth2/authorize?state=example');
+
+    expect(opened).toBe(false);
+    expect(writes).toEqual(['Open this URL in a browser:\nhttps://x.com/i/oauth2/authorize?state=example\n']);
+  });
+
   it('opens an authorization URL with PKCE and the minimum scopes', async () => {
     const store = memoryStore();
     let opened = '';

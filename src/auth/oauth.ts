@@ -24,6 +24,22 @@ export interface OAuthDependencies {
   now?: () => number;
 }
 
+interface BrowserOpenerOptions {
+  manual: boolean;
+  write: (value: string) => void;
+  open: (url: string) => Promise<void>;
+}
+
+export function createBrowserOpener(options: BrowserOpenerOptions): (url: string) => Promise<void> {
+  return async (url) => {
+    if (options.manual) {
+      options.write(`Open this URL in a browser:\n${url}\n`);
+      return;
+    }
+    await options.open(url);
+  };
+}
+
 export class OAuthClient {
   constructor(private readonly clientId: string, private readonly dependencies: OAuthDependencies) {}
 
@@ -82,7 +98,11 @@ export class OAuthClient {
 export function createOAuthClient(clientId: string, store: CredentialStore): OAuthClient {
   return new OAuthClient(clientId, {
     store, fetch: globalThis.fetch,
-    openBrowser: async (url) => { await promisify(execFile)('/usr/bin/open', [url]); },
+    openBrowser: createBrowserOpener({
+      manual: process.env.X_OAUTH_MANUAL === '1',
+      write: (value) => { process.stderr.write(value); },
+      open: async (url) => { await promisify(execFile)('/usr/bin/open', [url]); }
+    }),
     receiveCallback: () => receiveOAuthCallback()
   });
 }

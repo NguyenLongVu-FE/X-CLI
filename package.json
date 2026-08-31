@@ -26,6 +26,7 @@
     "test:skill-install": "pnpm build && tsx scripts/skill-install-smoke.ts"
   },
   "dependencies": {
+    "@napi-rs/keyring": "2.0.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

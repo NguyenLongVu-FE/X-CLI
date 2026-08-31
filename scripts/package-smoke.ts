@@ -17,6 +17,12 @@ async function main(): Promise<void> {
     const { stdout } = await exec('pnpm', ['pack', '--pack-destination', packed, '--json'], { cwd: process.cwd() });
     const metadata = JSON.parse(stdout) as { files: { path: string }[] };
     const files = metadata.files.map((file) => file.path);
+    for (const file of files) {
+      assert(
+        file === 'package.json' || file === 'README.md' || file === 'LICENSE' || file.startsWith('dist/') && !file.startsWith('dist/src/') && !file.startsWith('dist/scripts/') || file.startsWith('skills/'),
+        `tarball contains an unintended file: ${file}`
+      );
+    }
     for (const required of ['package.json', 'README.md', 'LICENSE', 'dist/cli.js', 'dist/index.js', 'skills/x-cli/SKILL.md']) {
       assert(files.includes(required), `tarball is missing ${required}`);
     }

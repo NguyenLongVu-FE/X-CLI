@@ -4,6 +4,8 @@ export * from './auth/keychain.js';
 export * from './auth/oauth.js';
 export * from './auth/pkce.js';
 export * from './api/cost.js';
+export * from './api/normalize.js';
+export * from './api/reads.js';
 export * from './api/transport.js';
 export * from './api/types.js';
 export * from './errors.js';

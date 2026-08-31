@@ -14,7 +14,7 @@ The unscoped npm name `x-cli` is owned by another package. This project uses `@n
 ## Install
 
 ```bash
-npm install -g github:NguyenLongVu-FE/X-CLI
+npm install -g https://github.com/NguyenLongVu-FE/X-CLI/archive/refs/heads/main.tar.gz
 ```
 
 After npm publication:
@@ -137,6 +137,7 @@ CI never contains live OAuth credentials and the live script never performs writ
 Known exceptions and boundaries:
 
 - macOS with Node.js 22 is supported and verified. Windows and Linux are not release-tested.
+- npm's `github:owner/repo` shorthand is not supported for global installation because npm can leave a broken symlink to its temporary Git clone. Use the documented GitHub archive URL or clone the repository and run `npm install -g .`.
 - Each Mac must complete OAuth separately. Keychain credentials are intentionally not portable.
 - A pure SSH session may not access the login Keychain; run from the logged-in desktop session or explicitly unlock that Keychain.
 - X API availability, credits, rate limits, account restrictions, protected content, and policy changes remain controlled by X.

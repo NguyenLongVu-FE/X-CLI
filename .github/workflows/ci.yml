@@ -24,4 +24,4 @@ jobs:
       - run: pnpm test:git-install
       - run: pnpm test:skill-install
       - if: github.event_name == 'push'
-        run: npm install -g "github:${GITHUB_REPOSITORY}#${GITHUB_SHA}" && x --help
+        run: npm install -g "https://github.com/${GITHUB_REPOSITORY}/archive/${GITHUB_SHA}.tar.gz" && x --help

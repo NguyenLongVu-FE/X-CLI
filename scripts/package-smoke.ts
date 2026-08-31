@@ -15,7 +15,9 @@ async function main(): Promise<void> {
     await mkdir(packed); await mkdir(installed);
     await writeFile(join(installed, 'package.json'), '{"type":"module"}\n');
     const { stdout } = await exec('pnpm', ['pack', '--pack-destination', packed, '--json'], { cwd: process.cwd() });
-    const metadata = JSON.parse(stdout) as { files: { path: string }[] };
+    const jsonStart = stdout.indexOf('{');
+    if (jsonStart === -1) throw new Error('pnpm pack did not return JSON metadata');
+    const metadata = JSON.parse(stdout.slice(jsonStart)) as { files: { path: string }[] };
     const files = metadata.files.map((file) => file.path);
     for (const file of files) {
       assert(

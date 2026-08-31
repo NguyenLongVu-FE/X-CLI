@@ -105,6 +105,7 @@ pnpm install
 pnpm typecheck
 pnpm test
 pnpm test:package
+pnpm test:git-install
 pnpm test:skill-install
 ```
 

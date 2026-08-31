@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from './args.js';
+import { createProductionApp, runCommand } from './app.js';
+import { XCliError } from './errors.js';
 
 export function helpText(): string {
   return `Usage: x <command>
@@ -23,12 +26,20 @@ export async function main(arguments_: readonly string[]): Promise<void> {
     process.stdout.write(helpText());
     return;
   }
-  throw new Error(`Unknown command: ${arguments_.join(' ')}`);
+  const command = parseArgs(arguments_);
+  const clientId = process.env.X_CLIENT_ID ?? '';
+  if (command.kind === 'auth-login' && clientId === '') throw new XCliError('AUTH_REQUIRED', 'Set X_CLIENT_ID before login', 2);
+  process.stdout.write(await runCommand(command, createProductionApp(clientId)));
 }
 
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   void main(process.argv.slice(2)).catch((error: unknown) => {
-    process.stderr.write(`${error instanceof Error ? error.message : 'Unknown error'}\n`);
-    process.exitCode = 1;
+    if (error instanceof XCliError) {
+      process.stderr.write(`${JSON.stringify({ error: { code: error.code, message: error.message, details: error.details } })}\n`);
+      process.exitCode = error.exitCode;
+    } else {
+      process.stderr.write(`${JSON.stringify({ error: { code: 'API_ERROR', message: error instanceof Error ? error.message : 'Unknown error' } })}\n`);
+      process.exitCode = 1;
+    }
   });
 }

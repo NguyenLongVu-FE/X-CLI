@@ -1,4 +1,5 @@
 export * from './args.js';
+export * from './app.js';
 export * from './auth/credentials.js';
 export * from './auth/keychain.js';
 export * from './auth/oauth.js';

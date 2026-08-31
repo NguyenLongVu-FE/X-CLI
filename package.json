@@ -22,6 +22,7 @@
     "build": "rimraf dist && tsc && chmod +x dist/cli.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:live:reads": "tsx scripts/live-contract.ts",
     "test:package": "pnpm build && tsx scripts/package-smoke.ts",
     "test:skill-install": "pnpm build && tsx scripts/skill-install-smoke.ts"
   },

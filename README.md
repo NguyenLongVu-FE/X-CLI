@@ -100,4 +100,10 @@ pnpm test:package
 pnpm test:skill-install
 ```
 
-Live verification requires credits and Sabrina's OAuth consent. CI never contains live OAuth credentials.
+After the account owner grants OAuth consent, the authorized read-only live contract can be rerun from a desktop session with Keychain access:
+
+```bash
+X_LIVE_READS=1 X_LIVE_USERNAME=imtamhn pnpm test:live:reads
+```
+
+CI never contains live OAuth credentials and the live script never performs writes. On 2026-08-31, the production package was verified against `@imtamhn` for authentication, profile, home/following timelines, recent search, user lookup, post lookup, and an approved like/unlike round trip that restored the original state.

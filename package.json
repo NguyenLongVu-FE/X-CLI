@@ -10,9 +10,11 @@
   "files": ["dist", "skills", "README.md", "LICENSE"],
   "engines": { "node": ">=22" },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/cli.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:package": "pnpm build && tsx scripts/package-smoke.ts",
+    "test:skill-install": "pnpm build && tsx scripts/skill-install-smoke.ts"
   },
   "dependencies": { "zod": "^4.1.12" },
   "devDependencies": {

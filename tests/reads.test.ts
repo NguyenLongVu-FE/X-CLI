@@ -51,6 +51,12 @@ describe('X read operations', () => {
     await expect(new XClient(new FakeTransport([{ meta: {} }])).searchPosts('none', 10)).resolves.toEqual([]);
   });
 
+  it('reports a missing singular resource as NOT_FOUND instead of leaking a TypeError', async () => {
+    await expect(new XClient(new FakeTransport([{ errors: [{ detail: 'not found' }] }])).getPost('deleted')).rejects.toMatchObject({
+      code: 'NOT_FOUND'
+    });
+  });
+
   it('checks following status across official API pages', async () => {
     const transport = new FakeTransport([
       { data: { id: '2', name: 'Target', username: 'target' } },

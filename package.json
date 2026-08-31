@@ -1,6 +1,6 @@
 {
   "name": "@nguyenlongvu-fe/x-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Safe command-line access to the official X API",
   "license": "MIT",
   "type": "module",

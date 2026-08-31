@@ -1,9 +1,10 @@
 import type { ApiRequest, ApiResult } from './types.js';
 import { normalizePost, normalizeUser, type XPost, type XUser } from './normalize.js';
+import { XCliError } from '../errors.js';
 
 interface Requester { request<T>(request: ApiRequest): Promise<ApiResult<T>> }
-type UserEnvelope = { data: Record<string, unknown> };
-type PostEnvelope = { data: Record<string, unknown> };
+type UserEnvelope = { data?: Record<string, unknown> };
+type PostEnvelope = { data?: Record<string, unknown> };
 type PostsEnvelope = { data?: Record<string, unknown>[]; meta?: { next_token?: string } };
 type UsersEnvelope = { data?: { id?: string }[]; meta?: { next_token?: string } };
 
@@ -16,7 +17,7 @@ export class XClient {
 
   async me(): Promise<XUser> {
     const result = await this.transport.request<UserEnvelope>({ method: 'GET', path: `/users/me?user.fields=${USER_FIELDS}`, kind: 'read' });
-    const user = normalizeUser(result.data.data);
+    const user = normalizeUser(requiredData(result.data.data));
     this.accountId = user.id;
     return user;
   }
@@ -40,14 +41,14 @@ export class XClient {
 
   async getPost(postId: string): Promise<XPost> {
     const result = await this.transport.request<PostEnvelope>({ method: 'GET', path: `/tweets/${postId}?tweet.fields=${POST_FIELDS}`, kind: 'read' });
-    return normalizePost(result.data.data);
+    return normalizePost(requiredData(result.data.data));
   }
 
   async getUser(username: string): Promise<XUser> {
     const result = await this.transport.request<UserEnvelope>({
       method: 'GET', path: `/users/by/username/${encodeURIComponent(username)}?user.fields=${USER_FIELDS}`, kind: 'read'
     });
-    return normalizeUser(result.data.data);
+    return normalizeUser(requiredData(result.data.data));
   }
 
   async isFollowing(username: string): Promise<{ username: string; userId: string; following: boolean }> {
@@ -70,4 +71,9 @@ export class XClient {
     } while (paginationToken !== undefined);
     return { username: target.username, userId: target.id, following: false };
   }
+}
+
+function requiredData(value: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (value === undefined) throw new XCliError('NOT_FOUND', 'X resource was not found', 3);
+  return value;
 }

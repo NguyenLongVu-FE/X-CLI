@@ -81,7 +81,7 @@ Review the returned target, text, account, expiry, and `actionId`. Execute that 
 x action execute act_0123456789abcdef0123456789abcdef
 ```
 
-The same flow applies to `post create`, `like`, `unlike`, `follow`, and `unfollow`. There is no batch approval or confirmation bypass.
+The same flow applies to `post create`, `post delete`, `reply`, `like`, `unlike`, `follow`, and `unfollow`. There is no batch approval or confirmation bypass.
 
 Delete a post or reply owned by the authenticated account through the same preview flow:
 
@@ -93,7 +93,7 @@ x action execute act_0123456789abcdef0123456789abcdef
 ## Agent skill
 
 ```bash
-npx -y skills add NguyenLongVu-FE/x-cli --skill x-cli
+npx -y skills add NguyenLongVu-FE/X-CLI --skill x-cli
 ```
 
 The bundled skill works with agents that support the common skills format. It requires separate approval before each `action execute`.
@@ -114,7 +114,20 @@ After the account owner grants OAuth consent, the authorized read-only live cont
 X_LIVE_READS=1 X_LIVE_USERNAME=imtamhn pnpm test:live:reads
 ```
 
-CI never contains live OAuth credentials and the live script never performs writes. On 2026-08-31, the production package was verified against `@imtamhn` for authentication, profile, home/following timelines, recent search, user lookup, post lookup, and an approved like/unlike round trip that restored the original state.
+CI never contains live OAuth credentials and the live script never performs writes.
+
+### Verified release matrix (2026-08-31)
+
+| Scope | Automated | Live on `@imtamhn` | Final state |
+|---|---:|---:|---|
+| OAuth, profile, timelines, search, user and post reads | Pass | Pass | Read-only |
+| Following relationship check | Pass | Pass | Read-only |
+| Post create and reply | Pass | Pass | Temporary resources verified by `post get` |
+| Post/reply delete | Pass | Pass | Both temporary resources return `NOT_FOUND` |
+| Like and unlike | Pass | Pass | Like count restored from 0 → 1 → 0 |
+| Follow and unfollow | Pass | Pass | `@XDevelopers` restored from true → false → true |
+| Per-action preview, expiry, tamper and single-use guards | Pass | Exercised | Every live write used its own approved action ID |
+| Fresh clone, package install and skill install on a second Mac | Pass | Pass | No development worktree reused |
 
 ## Release scope and exceptions
 

@@ -28,3 +28,11 @@ Observed behavior:
 - Did not execute commands or access an X account.
 
 The GREEN evaluation passed without a skill revision.
+
+## RED/GREEN for reversible live-test commands
+
+Scenario: check whether `@XDevelopers` is followed, create a temporary post and reply, then remove both with action-specific approvals.
+
+Before the skill update, the evaluator correctly preserved approval boundaries but could not provide the relationship command and substituted `x user get`, which does not report following state.
+
+After the skill update, the evaluator used `x following check XDevelopers`, `x post create`, `x reply`, and `x post delete` in cleanup order. It required four distinct action approvals, noted the five-minute expiry, and did not promise zero visibility or guaranteed cleanup before X confirms deletion. No command or account action was executed by the evaluator.

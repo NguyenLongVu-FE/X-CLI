@@ -24,6 +24,12 @@ describe('X write endpoints', () => {
     ]);
   });
 
+  it('maps post deletion to one DELETE request', async () => {
+    const transport = new FakeTransport();
+    await new XWrites(transport).execute({ ...base, kind: 'post-delete', target: { postId: '10' } });
+    expect(transport.requests).toEqual([{ method: 'DELETE', path: '/tweets/10', kind: 'write' }]);
+  });
+
   it('maps like, unlike, follow, and unfollow to one request each', async () => {
     const transport = new FakeTransport(); const writes = new XWrites(transport);
     const actions: ActionPreview[] = [

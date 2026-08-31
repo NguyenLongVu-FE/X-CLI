@@ -7,5 +7,7 @@ describe('CLI help', () => {
     for (const command of ['auth', 'timeline', 'search', 'post', 'reply', 'like', 'follow', 'action']) {
       expect(helpText()).toContain(command);
     }
+    expect(helpText()).toContain('post get|create|delete');
+    expect(helpText()).toContain('following check');
   });
 });

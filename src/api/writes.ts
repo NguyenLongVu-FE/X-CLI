@@ -17,6 +17,7 @@ export class XWrites {
 function requestFor(action: ActionPreview): ApiRequest {
   const account = encodeURIComponent(action.accountId);
   if (action.kind === 'post-create') return { method: 'POST', path: '/tweets', kind: 'write', body: { text: action.text } };
+  if (action.kind === 'post-delete') return { method: 'DELETE', path: `/tweets/${postId(action)}`, kind: 'write' };
   if (action.kind === 'reply') return {
     method: 'POST', path: '/tweets', kind: 'write',
     body: { text: action.text, reply: { in_reply_to_tweet_id: postId(action) } }

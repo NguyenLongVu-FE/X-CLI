@@ -21,10 +21,15 @@ describe('command parsing', () => {
   });
 
   it('parses every first-release write action', () => {
+    expect(parseArgs(['post', 'delete', 'https://x.com/t/status/123'])).toEqual({ kind: 'post-delete', postId: '123', pretty: false });
     expect(parseArgs(['like', '123']).kind).toBe('like');
     expect(parseArgs(['unlike', '123']).kind).toBe('unlike');
     expect(parseArgs(['follow', '@imtamhn']).kind).toBe('follow');
     expect(parseArgs(['unfollow', 'imtamhn']).kind).toBe('unfollow');
     expect(parseArgs(['action', 'execute', 'act_123'])).toEqual({ kind: 'action-execute', actionId: 'act_123', pretty: false });
+  });
+
+  it('parses a following relationship check without creating an action', () => {
+    expect(parseArgs(['following', 'check', '@imtamhn'])).toEqual({ kind: 'following-check', username: 'imtamhn', pretty: false });
   });
 });

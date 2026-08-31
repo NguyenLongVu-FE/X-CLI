@@ -50,4 +50,29 @@ describe('X read operations', () => {
   it('returns an empty collection when X omits data', async () => {
     await expect(new XClient(new FakeTransport([{ meta: {} }])).searchPosts('none', 10)).resolves.toEqual([]);
   });
+
+  it('checks following status across official API pages', async () => {
+    const transport = new FakeTransport([
+      { data: { id: '2', name: 'Target', username: 'target' } },
+      { data: { id: '1', name: 'Tam', username: 'imtamhn' } },
+      { data: [{ id: '3', username: 'other' }], meta: { next_token: 'next' } },
+      { data: [{ id: '2', username: 'target' }], meta: {} }
+    ]);
+    await expect(new XClient(transport).isFollowing('target')).resolves.toEqual({
+      username: 'target', userId: '2', following: true
+    });
+    expect(transport.requests.map((request) => request.path)).toEqual(expect.arrayContaining([
+      expect.stringContaining('/users/1/following?'),
+      expect.stringContaining('pagination_token=next')
+    ]));
+  });
+
+  it('reports false when the target is absent from every following page', async () => {
+    const transport = new FakeTransport([
+      { data: { id: '2', name: 'Target', username: 'target' } },
+      { data: { id: '1', name: 'Tam', username: 'imtamhn' } },
+      { data: [], meta: {} }
+    ]);
+    await expect(new XClient(transport).isFollowing('target')).resolves.toMatchObject({ following: false });
+  });
 });

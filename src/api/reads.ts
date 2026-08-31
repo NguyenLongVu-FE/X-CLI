@@ -5,6 +5,7 @@ interface Requester { request<T>(request: ApiRequest): Promise<ApiResult<T>> }
 type UserEnvelope = { data: Record<string, unknown> };
 type PostEnvelope = { data: Record<string, unknown> };
 type PostsEnvelope = { data?: Record<string, unknown>[]; meta?: { next_token?: string } };
+type UsersEnvelope = { data?: { id?: string }[]; meta?: { next_token?: string } };
 
 const USER_FIELDS = 'id,name,username,description,public_metrics';
 const POST_FIELDS = 'id,text,author_id,created_at,conversation_id,public_metrics';
@@ -47,5 +48,26 @@ export class XClient {
       method: 'GET', path: `/users/by/username/${encodeURIComponent(username)}?user.fields=${USER_FIELDS}`, kind: 'read'
     });
     return normalizeUser(result.data.data);
+  }
+
+  async isFollowing(username: string): Promise<{ username: string; userId: string; following: boolean }> {
+    const target = await this.getUser(username);
+    const accountId = this.accountId ?? (await this.me()).id;
+    let paginationToken: string | undefined;
+    const seenTokens = new Set<string>();
+    do {
+      const params = new URLSearchParams({ max_results: '1000' });
+      if (paginationToken !== undefined) params.set('pagination_token', paginationToken);
+      const result = await this.transport.request<UsersEnvelope>({
+        method: 'GET', path: `/users/${accountId}/following?${params}`, kind: 'read'
+      });
+      if ((result.data.data ?? []).some((user) => user.id === target.id)) {
+        return { username: target.username, userId: target.id, following: true };
+      }
+      paginationToken = result.data.meta?.next_token;
+      if (paginationToken !== undefined && seenTokens.has(paginationToken)) break;
+      if (paginationToken !== undefined) seenTokens.add(paginationToken);
+    } while (paginationToken !== undefined);
+    return { username: target.username, userId: target.id, following: false };
   }
 }

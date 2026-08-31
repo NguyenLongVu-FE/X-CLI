@@ -10,7 +10,8 @@ function dependencies(): AppDependencies {
       me: async () => ({ id: '1', name: 'Tam', username: 'imtamhn' }),
       homeTimeline: async () => [{ id: '10', text: 'home' }], followingTimeline: async () => [{ id: '11', text: 'following' }],
       searchPosts: async () => [{ id: '12', text: 'search' }], getPost: async (id) => ({ id, text: 'post' }),
-      getUser: async (username) => ({ id: '2', name: 'User', username })
+      getUser: async (username) => ({ id: '2', name: 'User', username }),
+      isFollowing: async (username) => ({ username, userId: '2', following: false })
     },
     planner: { plan: async (input, accountId) => ({ ...input, version: 1 as const, id: 'act_1', accountId, createdAt: 1, expiresAt: 2, hash: 'h' }) },
     executor: { execute: async (id) => ({ actionId: id, kind: 'like' as const, outcome: 'confirmed' as const }) }
@@ -24,13 +25,14 @@ describe('complete CLI wiring', () => {
     expect(await runCommand(parseArgs(['search', 'posts', 'AI']), dependencies())).toContain('"search"');
     expect(await runCommand(parseArgs(['post', 'get', '10']), dependencies())).toContain('"id":"10"');
     expect(await runCommand(parseArgs(['user', 'get', '@tam']), dependencies())).toContain('"username":"tam"');
+    expect(await runCommand(parseArgs(['following', 'check', '@tam']), dependencies())).toContain('"following":false');
   });
 
   it('creates previews for every write command without executing them', async () => {
     const deps = dependencies(); let executions = 0;
     deps.executor.execute = async () => { executions += 1; throw new Error('must not execute'); };
     for (const argv of [
-      ['post', 'create', '--text', 'hello'], ['reply', '10', '--text', 'thanks'], ['like', '10'], ['unlike', '10'],
+      ['post', 'create', '--text', 'hello'], ['post', 'delete', '10'], ['reply', '10', '--text', 'thanks'], ['like', '10'], ['unlike', '10'],
       ['follow', '@tam'], ['unfollow', '@tam']
     ]) expect(await runCommand(parseArgs(argv), deps)).toContain('"id":"act_1"');
     expect(executions).toBe(0);

@@ -8,6 +8,7 @@ if (process.env.X_LIVE_READS !== '1') {
 
 const executable = process.env.X_CLI_BIN ?? 'x';
 const username = process.env.X_LIVE_USERNAME ?? 'imtamhn';
+const relationshipTarget = process.env.X_LIVE_RELATIONSHIP_TARGET ?? 'XDevelopers';
 const checks: Check[] = [];
 
 async function run(args: string[]): Promise<unknown[]> {
@@ -25,6 +26,7 @@ const home = await run(['timeline', 'home', '--limit', '2']);
 await run(['timeline', 'following', '--limit', '2']);
 const search = await run(['search', 'posts', `from:${username}`, '--limit', '2']);
 await run(['user', 'get', username]);
+await run(['following', 'check', relationshipTarget]);
 const candidate = search[0] ?? home[0];
 if (!isRecord(candidate) || typeof candidate.id !== 'string') throw new Error('No post available for post get verification');
 await run(['post', 'get', candidate.id]);

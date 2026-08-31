@@ -7,7 +7,9 @@ export type ParsedCommand =
   | ({ kind: 'timeline-home' | 'timeline-following'; limit: number } & WithPretty)
   | ({ kind: 'search-posts'; query: string; limit: number } & WithPretty)
   | ({ kind: 'post-get'; postId: string } & WithPretty)
+  | ({ kind: 'post-delete'; postId: string } & WithPretty)
   | ({ kind: 'user-get'; username: string } & WithPretty)
+  | ({ kind: 'following-check'; username: string } & WithPretty)
   | ({ kind: 'post-create'; text: string } & WithPretty)
   | ({ kind: 'reply'; postId: string; text: string } & WithPretty)
   | ({ kind: 'like' | 'unlike'; postId: string } & WithPretty)
@@ -27,8 +29,12 @@ export function parseArgs(argv: readonly string[]): ParsedCommand {
     result = { kind: 'search-posts', query: positional[2]!, limit: takeLimit(options), pretty };
   } else if (positional[0] === 'post' && positional[1] === 'get' && positional.length === 3) {
     result = { kind: 'post-get', postId: parsePostRef(positional[2]!), pretty };
+  } else if (positional[0] === 'post' && positional[1] === 'delete' && positional.length === 3) {
+    result = { kind: 'post-delete', postId: parsePostRef(positional[2]!), pretty };
   } else if (positional[0] === 'user' && positional[1] === 'get' && positional.length === 3) {
     result = { kind: 'user-get', username: normalizeUsername(positional[2]!), pretty };
+  } else if (positional[0] === 'following' && positional[1] === 'check' && positional.length === 3) {
+    result = { kind: 'following-check', username: normalizeUsername(positional[2]!), pretty };
   } else if (positional[0] === 'post' && positional[1] === 'create' && positional.length === 2) {
     result = { kind: 'post-create', text: takeText(options), pretty };
   } else if (positional[0] === 'reply' && positional.length === 2) {

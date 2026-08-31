@@ -1,4 +1,4 @@
-export type ActionKind = 'post-create' | 'reply' | 'like' | 'unlike' | 'follow' | 'unfollow';
+export type ActionKind = 'post-create' | 'post-delete' | 'reply' | 'like' | 'unlike' | 'follow' | 'unfollow';
 export type ActionTarget = { postId: string } | { username: string; userId: string } | Record<string, never>;
 
 export interface ActionInput {

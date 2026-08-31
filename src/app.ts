@@ -24,6 +24,7 @@ interface ReadCommands {
   searchPosts(query: string, limit: number): Promise<unknown[]>;
   getPost(id: string): Promise<unknown>;
   getUser(username: string): Promise<{ id: string; name: string; username: string }>;
+  isFollowing(username: string): Promise<{ username: string; userId: string; following: boolean }>;
 }
 interface Planner { plan(input: ActionInput, accountId: string): Promise<ActionPreview> }
 interface Executor { execute(id: string): Promise<WriteResult & { actionId: string; kind: ActionPreview['kind'] }> }
@@ -42,7 +43,9 @@ export async function runCommand(command: ParsedCommand, dependencies: AppDepend
     case 'timeline-following': value = await dependencies.client.followingTimeline(command.limit); collection = true; break;
     case 'search-posts': value = await dependencies.client.searchPosts(command.query, command.limit); collection = true; break;
     case 'post-get': value = await dependencies.client.getPost(command.postId); break;
+    case 'post-delete': value = await plan(dependencies, { kind: 'post-delete', target: { postId: command.postId } }); break;
     case 'user-get': value = await dependencies.client.getUser(command.username); break;
+    case 'following-check': value = await dependencies.client.isFollowing(command.username); break;
     case 'post-create': value = await plan(dependencies, { kind: 'post-create', target: {}, text: command.text }); break;
     case 'reply': value = await plan(dependencies, { kind: 'reply', target: { postId: command.postId }, text: command.text }); break;
     case 'like': value = await plan(dependencies, { kind: 'like', target: { postId: command.postId } }); break;

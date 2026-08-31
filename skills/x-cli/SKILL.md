@@ -1,6 +1,6 @@
 ---
 name: x-cli
-description: Use when reading an authenticated X account or preparing explicitly approved post, reply, like, unlike, follow, or unfollow actions through x-cli.
+description: Use when reading an authenticated X account or preparing explicitly approved post, reply, delete, like, unlike, follow, or unfollow actions through x-cli.
 ---
 
 # x-cli
@@ -19,6 +19,7 @@ x timeline following --limit 20
 x search posts "query" --limit 20
 x post get <post-id-or-url>
 x user get <username>
+x following check <username>
 ```
 
 Collections are NDJSON. Use `jq -s` when an array is needed. `home` and `following` both represent the official reverse-chronological home timeline. The X API does not expose the algorithmic For You feed.
@@ -29,6 +30,7 @@ Every write requires two separate commands. The first creates a five-minute prev
 
 ```bash
 x post create --text "text"
+x post delete <post-id-or-url>
 x reply <post-id-or-url> --text "text"
 x like <post-id-or-url>
 x unlike <post-id-or-url>
@@ -43,6 +45,8 @@ x action execute <action-id>
 ```
 
 Approval never carries to another target, edited text, expired preview, or additional action ID. There is no batch approval and no bypass flag.
+
+For a temporary post/reply verification, execute and approve each step separately, then delete the reply before deleting its parent post. Cleanup can fail after content becomes visible, so never promise zero visibility or guaranteed cleanup before the deletion responses are confirmed.
 
 Reject bulk or autonomous engagement, identical unsolicited replies, engagement farming, background likes, and follow churn. A broad statement such as "full authority" is not approval for a later action ID.
 

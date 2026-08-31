@@ -14,7 +14,7 @@ The unscoped npm name `x-cli` is owned by another package. This project uses `@n
 ## Install
 
 ```bash
-npm install -g github:NguyenLongVu-FE/x-cli
+npm install -g github:NguyenLongVu-FE/X-CLI
 ```
 
 After npm publication:
@@ -56,6 +56,7 @@ x timeline following --limit 20
 x search posts "AI automation" --limit 20
 x post get https://x.com/user/status/123
 x user get @imtamhn
+x following check @XDevelopers
 ```
 
 Singular results are JSON. Collections are NDJSON and can be processed with `jq`:
@@ -82,6 +83,13 @@ x action execute act_0123456789abcdef0123456789abcdef
 
 The same flow applies to `post create`, `like`, `unlike`, `follow`, and `unfollow`. There is no batch approval or confirmation bypass.
 
+Delete a post or reply owned by the authenticated account through the same preview flow:
+
+```bash
+x post delete https://x.com/user/status/123
+x action execute act_0123456789abcdef0123456789abcdef
+```
+
 ## Agent skill
 
 ```bash
@@ -107,3 +115,18 @@ X_LIVE_READS=1 X_LIVE_USERNAME=imtamhn pnpm test:live:reads
 ```
 
 CI never contains live OAuth credentials and the live script never performs writes. On 2026-08-31, the production package was verified against `@imtamhn` for authentication, profile, home/following timelines, recent search, user lookup, post lookup, and an approved like/unlike round trip that restored the original state.
+
+## Release scope and exceptions
+
+“Complete” means every command documented above passes automated contract tests, package/skill installation from a fresh clone, and the reversible live checks recorded for the release. It does not mean every X feature or every future X API condition.
+
+Known exceptions and boundaries:
+
+- macOS with Node.js 22 is supported and verified. Windows and Linux are not release-tested.
+- Each Mac must complete OAuth separately. Keychain credentials are intentionally not portable.
+- A pure SSH session may not access the login Keychain; run from the logged-in desktop session or explicitly unlock that Keychain.
+- X API availability, credits, rate limits, account restrictions, protected content, and policy changes remain controlled by X.
+- `home` and `following` expose the official reverse-chronological timeline, not the algorithmic For You feed.
+- Text posts, replies, deletion of owned posts/replies, likes, and following are in scope. Media upload, repost/quote, bookmarks, direct messages, lists, Spaces, notifications, and bulk/background engagement are out of scope.
+- Every write needs a fresh action-specific approval. Previews expire after five minutes; there is no batch or global bypass.
+- A temporary live test can be visible before cleanup, and cleanup can fail. Success is reported only after X confirms each cleanup action and the final state is read back.

@@ -14,10 +14,11 @@ Commands:
   me
   timeline home|following
   search posts <query>
-  post get|create
+  post get|create|delete
   reply <post> --text <text>
   like|unlike <post>
   follow|unfollow <username>
+  following check <username>
   action execute <action-id>
 `;
 }

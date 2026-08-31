@@ -8,7 +8,6 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const temporary = await mkdtemp(join(tmpdir(), 'x-cli-git-install-'));
 
 try {
-  await rm(join(root, 'dist'), { recursive: true, force: true });
   await run('npm', ['install', '-g', '--prefix', join(temporary, 'prefix'), root]);
   await run(join(temporary, 'prefix', 'bin', 'x'), ['--help']);
   process.stdout.write('git install smoke passed\n');

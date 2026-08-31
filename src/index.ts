@@ -8,6 +8,8 @@ export * from './api/normalize.js';
 export * from './api/reads.js';
 export * from './api/transport.js';
 export * from './api/types.js';
+export * from './api/writes.js';
+export * from './actions/executor.js';
 export * from './actions/planner.js';
 export * from './actions/store.js';
 export * from './actions/types.js';

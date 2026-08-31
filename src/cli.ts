@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from './args.js';
 import { createProductionApp, runCommand } from './app.js';
@@ -32,7 +33,7 @@ export async function main(arguments_: readonly string[]): Promise<void> {
   process.stdout.write(await runCommand(command, createProductionApp(clientId)));
 }
 
-if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] !== undefined && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
   void main(process.argv.slice(2)).catch((error: unknown) => {
     if (error instanceof XCliError) {
       process.stderr.write(`${JSON.stringify({ error: { code: error.code, message: error.message, details: error.details } })}\n`);

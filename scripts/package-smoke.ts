@@ -29,6 +29,8 @@ async function main(): Promise<void> {
     const [tarball] = await readdir(packed);
     if (tarball === undefined || !tarball.endsWith('.tgz')) throw new Error('pnpm pack did not create a tarball');
     await exec('pnpm', ['add', join(packed, tarball)], { cwd: installed });
+    const direct = await exec(join(installed, 'node_modules', '.bin', 'x'), ['--help'], { cwd: installed });
+    assert.match(direct.stdout, /action execute/, 'direct npm bin symlink did not run the CLI entrypoint');
     const help = await exec('pnpm', ['exec', 'x', '--help'], { cwd: installed });
     assert.match(help.stdout, /action execute/);
     await exec(process.execPath, ['--input-type=module', '--eval', "import('@nguyenlongvu-fe/x-cli').then((m) => { if (!m.XClient) throw new Error('missing XClient') })"], { cwd: installed });

@@ -35,6 +35,21 @@ describe('Playwriter runner', () => {
     expect(fake.calls.every(({ shell }) => shell === false)).toBe(true);
   });
 
+  it('accepts the verbose session output emitted by Playwriter 0.4.0', async () => {
+    const fake = lifecycle();
+    const original = fake.execFile;
+    fake.execFile = async (file, args, options) => {
+      if (args[0] === 'session' && args[1] === 'new') {
+        fake.activeSessions.add('17');
+        return { stdout: 'CDP relay server started successfully\nSession 17 created. Use with: playwriter -s 17 -e "..."\n', stderr: '' };
+      }
+      return original(file, args, options);
+    };
+    const runner = new PlaywriterRunner({ execFile: fake.execFile, buildProgram: () => 'program', withLock: async (work) => work() });
+    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' })).resolves.toEqual({ username: 'imtamhn' });
+    expect(fake.activeSessions.size).toBe(0);
+  });
+
   it('deletes the session when browser output is malformed', async () => {
     const fake = lifecycle('ordinary diagnostic\n');
     const runner = new PlaywriterRunner({ execFile: fake.execFile, buildProgram: () => 'program', withLock: async (work) => work() });

@@ -38,8 +38,7 @@ export class PlaywriterRunner {
     let sessionId: string | undefined;
     try {
       const created = await this.call(['session', 'new']);
-      sessionId = created.stdout.trim();
-      if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter returned an invalid session identifier', 2);
+      sessionId = parseSessionId(created.stdout);
       const result = await this.call(['-s', sessionId, '--timeout', String(this.timeoutMs), '-e', this.options.buildProgram(operation)]);
       return parseMarkedJson<T>(result.stdout);
     } finally {
@@ -59,6 +58,14 @@ export class PlaywriterRunner {
       throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter browser command failed', 2);
     }
   }
+}
+
+function parseSessionId(stdout: string): string {
+  const trimmed = stdout.trim();
+  if (/^[A-Za-z0-9_-]+$/.test(trimmed)) return trimmed;
+  const matches = [...stdout.matchAll(/^Session ([A-Za-z0-9_-]+) created\./gm)];
+  if (matches.length === 1) return matches[0]![1]!;
+  throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter returned an invalid session identifier', 2);
 }
 
 export function parseMarkedJson<T>(stdout: string): T {

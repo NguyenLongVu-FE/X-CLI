@@ -1381,8 +1381,8 @@ packages:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
     engines: {node: '>=16.20.0'}
 
-  playwriter@0.5.0:
-    resolution: {integrity: sha512-IMgOCI6d+ZuXu4EnxGmyABpTElHGNPjv7ewRHssI3fs8ZBMZpv+AqAUWw1mQWUh7Fn+aZ0ic6YkQUvCe+S0q9w==}
+  playwriter@0.4.0:
+    resolution: {integrity: sha512-Pn0sxzfrX5Ln0Fa7cXhUnMO6biLRbOQ4HiviXWKAgLjIpNBa3XZuge3c+mHAOi/WK+3AAhECpPAYrlFkgfJLqw==}
     hasBin: true
 
   pngjs@6.0.0:
@@ -1636,10 +1636,6 @@ packages:
 
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
-
-  undici@7.29.0:
-    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
-    engines: {node: '>=20.18.1'}
 
   unpipe@1.0.0:
     resolution: {integrity: sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==}
@@ -2905,7 +2901,6 @@ snapshots:
       '@modelcontextprotocol/sdk': 1.30.0(zod@4.5.4)
       '@xmorse/playwright-core': 1.59.11
       acorn: 8.18.0
-      ajv: 8.20.0
       async-sema: 3.1.1
       better-auth: 1.7.2(vitest@3.2.7(@types/node@22.20.1)(tsx@4.23.13)(yaml@2.9.0))
       diff: 8.0.4
@@ -2917,7 +2912,6 @@ snapshots:
       posthtml-beautify: 0.7.0
       string-dedent: 3.0.2
       strip-ansi: 7.2.0
-      undici: 7.29.0
       ws: 8.21.3
       zod: 4.5.4
       zustand: 5.0.15
@@ -3274,8 +3268,6 @@ snapshots:
   typescript@5.9.3: {}
 
   undici-types@6.21.0: {}
-
-  undici@7.29.0: {}
 
   unpipe@1.0.0: {}
 

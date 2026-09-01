@@ -75,6 +75,52 @@ describe('X browser status contract', () => {
 });
 
 describe('X browser read program', () => {
+  it('returns the visible title and body for an X Article without tweetText', async () => {
+    const logs: string[] = [];
+    const statusLink = { getAttribute: () => '/ivanleomk/status/2094685242086834335' };
+    const article = {
+      querySelectorAll: () => [statusLink],
+      querySelector: (selector: string) => {
+        if (selector === '[data-testid="tweetText"]') return null;
+        if (selector === '[data-testid="twitter-article-title"]') return { textContent: 'Value Maxxing' };
+        if (selector === '[data-testid="twitterArticleRichTextView"]') return { innerText: 'Token anxiety is real.\nBuild something useful.' };
+        if (selector === 'time') return { getAttribute: () => '2026-09-01T07:14:13.000Z' };
+        return null;
+      }
+    };
+    const page = {
+      goto: async () => undefined,
+      url: () => 'https://x.com/ivanleomk/status/2094685242086834335',
+      locator: (selector: string) => {
+        if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
+        if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
+        if (selector === '[data-testid="tweet"]') return { evaluateAll: async (callback: (articles: unknown[]) => unknown) => callback([article]) };
+        throw new Error(`unexpected selector: ${selector}`);
+      },
+      removeAllListeners: () => undefined,
+      close: async () => undefined
+    };
+    const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
+    const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({
+      kind: 'read-post', postId: '2094685242086834335', expectedUsername: 'imtamhn'
+    }));
+
+    await execute(
+      { newPage: async () => page }, async () => undefined, async () => [], async () => '', {},
+      { log: (value: unknown) => { logs.push(String(value)); } }
+    );
+
+    const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
+    expect(result).toMatchObject({
+      state: 'ok',
+      value: {
+        url: '/ivanleomk/status/2094685242086834335',
+        text: 'Value Maxxing\n\nToken anxiety is real.\nBuild something useful.',
+        authorUsername: 'ivanleomk'
+      }
+    });
+  });
+
   it('recognizes the live unfollow control as an already-following relationship', () => {
     const program = buildXProgram({ kind: 'check-following', username: 'XDevelopers', expectedUsername: 'imtamhn' });
     expect(program).toContain('[data-testid$="-unfollow"]');

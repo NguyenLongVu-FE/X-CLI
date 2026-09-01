@@ -130,6 +130,9 @@ async function readVisiblePosts(page) {
   return page.locator('[data-testid="tweet"]').evaluateAll((articles) => articles.map((article) => {
     const statusLink = Array.from(article.querySelectorAll('a[href*="/status/"]')).map((link) => link.getAttribute("href") || "").find((href) => /\\/status\\/\\d+/.test(href));
     const authorMatch = statusLink && statusLink.match(/^\\/([A-Za-z0-9_]{1,15})\\/status\\//);
+    const tweetText = (article.querySelector('[data-testid="tweetText"]')?.textContent || "").trim();
+    const articleTitle = (article.querySelector('[data-testid="twitter-article-title"]')?.textContent || "").trim();
+    const articleBody = (article.querySelector('[data-testid="twitterArticleRichTextView"]')?.innerText || "").trim();
     const metric = (selector) => {
       const element = article.querySelector(selector);
       const label = element && (element.getAttribute("aria-label") || element.textContent || "");
@@ -138,7 +141,7 @@ async function readVisiblePosts(page) {
     };
     return {
       url: statusLink,
-      text: (article.querySelector('[data-testid="tweetText"]')?.textContent || "").trim(),
+      text: tweetText || [articleTitle, articleBody].filter(Boolean).join("\\n\\n"),
       authorUsername: authorMatch ? authorMatch[1] : undefined,
       createdAt: article.querySelector("time")?.getAttribute("datetime") || undefined,
       metrics: {

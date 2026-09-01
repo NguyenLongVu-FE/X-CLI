@@ -1,0 +1,4 @@
+[
+  {"url":"https://x.com/alice/status/42","text":"Saved post","authorUsername":"alice"},
+  {"url":"https://x.com/bob/status/43","text":"Another saved post","authorUsername":"bob"}
+]

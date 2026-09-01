@@ -29,6 +29,7 @@ export declare class BrowserXClient {
         userId: string;
         following: boolean;
     }>;
+    bookmarks(limit: number): Promise<BrowserPost[]>;
     private observeStatus;
     private read;
     private requiredBinding;

@@ -46,6 +46,9 @@ export class BrowserXClient {
         }
         return { username: user.username, userId: user.id, following: value.following };
     }
+    async bookmarks(limit) {
+        return normalizeBrowserPosts(await this.read({ kind: 'read-bookmarks', limit }), limit);
+    }
     async observeStatus() {
         const binding = await this.requiredBinding();
         const observation = await this.runner.run({ kind: 'status', expectedUsername: binding.expectedUsername }, binding.browserKey);

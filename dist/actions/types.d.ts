@@ -1,5 +1,5 @@
 import type { MediaDescriptor } from '../media.js';
-export type ActionKind = 'post-create' | 'post-delete' | 'reply' | 'like' | 'unlike' | 'follow' | 'unfollow';
+export type ActionKind = 'post-create' | 'post-delete' | 'reply' | 'like' | 'unlike' | 'follow' | 'unfollow' | 'bookmark-add' | 'bookmark-remove';
 export type ActionTarget = {
     postId: string;
 } | {

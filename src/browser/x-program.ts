@@ -48,6 +48,10 @@ async function runXOperation(input, page, account) {
     await openXPage(page, "https://x.com/search?q=" + encodeURIComponent(input.query) + "&src=typed_query&f=live");
     return { account, state: "ok", value: await collectPosts(page, input.limit) };
   }
+  if (input.kind === "read-bookmarks") {
+    await openXPage(page, "https://x.com/i/bookmarks");
+    return { account, state: "ok", value: await collectPosts(page, input.limit) };
+  }
   if (input.kind === "read-post") {
     await openXPage(page, "https://x.com/i/web/status/" + encodeURIComponent(input.postId));
     const posts = await readVisiblePosts(page);
@@ -144,6 +148,7 @@ async function runWriteAction(action, page, account) {
     if (action.kind === "reply") return await replyToPost(action, page, account);
     if (action.kind === "post-delete") return await deletePost(action, page, account);
     if (action.kind === "like" || action.kind === "unlike") return await toggleLike(action, page, account);
+    if (action.kind === "bookmark-add" || action.kind === "bookmark-remove") return await toggleBookmark(action, page, account);
     if (action.kind === "follow" || action.kind === "unfollow") return await toggleFollow(action, page, account);
     return { account, outcome: "unknown" };
   } catch {
@@ -211,6 +216,23 @@ async function toggleLike(action, page, account) {
   if (await article.count() === 0) return { account, outcome: "unknown" };
   const before = action.kind === "like" ? "like" : "unlike";
   const after = action.kind === "like" ? "unlike" : "like";
+  if (await article.locator('[data-testid="' + after + '"]').count() > 0) return { account, outcome: "confirmed" };
+  const control = article.locator('[data-testid="' + before + '"]');
+  if (await control.count() === 0) return { account, outcome: "unknown" };
+  await control.click({ timeout: 2000 });
+  await page.waitForTimeout(500);
+  return { account, outcome: await article.locator('[data-testid="' + after + '"]').count() > 0 ? "confirmed" : "unknown" };
+}
+
+async function toggleBookmark(action, page, account) {
+  const id = writePostId(action);
+  await openXPage(page, "https://x.com/i/web/status/" + id);
+  const blocked = await blockedWrite(page, account);
+  if (blocked) return blocked;
+  const article = findPostArticle(page, id);
+  if (await article.count() === 0) return { account, outcome: "unknown" };
+  const before = action.kind === "bookmark-add" ? "bookmark" : "removeBookmark";
+  const after = action.kind === "bookmark-add" ? "removeBookmark" : "bookmark";
   if (await article.locator('[data-testid="' + after + '"]').count() > 0) return { account, outcome: "confirmed" };
   const control = article.locator('[data-testid="' + before + '"]');
   if (await control.count() === 0) return { account, outcome: "unknown" };

@@ -16,7 +16,8 @@ type ReadInput =
   | { kind: 'search-posts'; query: string; limit: number }
   | { kind: 'read-post'; postId: string }
   | { kind: 'read-user'; username: string }
-  | { kind: 'check-following'; username: string };
+  | { kind: 'check-following'; username: string }
+  | { kind: 'read-bookmarks'; limit: number };
 
 export class BrowserXClient {
   constructor(private readonly runner: OperationRunner, private readonly bindings: BindingReader) {}
@@ -68,6 +69,10 @@ export class BrowserXClient {
       throw new XCliError('X_UI_CHANGED', 'X following state was not visible', 2);
     }
     return { username: user.username, userId: user.id, following: value.following };
+  }
+
+  async bookmarks(limit: number): Promise<BrowserPost[]> {
+    return normalizeBrowserPosts(await this.read({ kind: 'read-bookmarks', limit }), limit);
   }
 
   private async observeStatus(): Promise<{ status: BrowserStatus; observation: StatusObservation }> {

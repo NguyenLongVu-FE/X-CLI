@@ -36,6 +36,7 @@ interface ReadCommands {
         userId: string;
         following: boolean;
     }>;
+    bookmarks(limit: number): Promise<unknown[]>;
 }
 interface Planner {
     plan(input: ActionInput, accountId: string): Promise<ActionPreview>;

@@ -27,6 +27,7 @@ export type BrowserOperation = {
 } | {
     kind: 'read-bookmarks';
     limit: number;
+    expectedUsername: string;
 } | {
     kind: 'list-dm';
     limit: number;

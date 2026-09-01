@@ -7,7 +7,7 @@ export type BrowserOperation =
   | { kind: 'read-post'; postId: string; expectedUsername: string }
   | { kind: 'read-user'; username: string; expectedUsername: string }
   | { kind: 'check-following'; username: string; expectedUsername: string }
-  | { kind: 'read-bookmarks'; limit: number }
+  | { kind: 'read-bookmarks'; limit: number; expectedUsername: string }
   | { kind: 'list-dm'; limit: number }
   | { kind: 'read-dm'; username: string; limit: number }
   | { kind: 'write'; action: ActionPreview };

@@ -36,6 +36,7 @@ interface ReadCommands {
   getPost(id: string): Promise<unknown>;
   getUser(username: string): Promise<{ id: string; name: string; username: string }>;
   isFollowing(username: string): Promise<{ username: string; userId: string; following: boolean }>;
+  bookmarks(limit: number): Promise<unknown[]>;
 }
 interface Planner { plan(input: ActionInput, accountId: string): Promise<ActionPreview> }
 interface Executor { execute(id: string): Promise<WriteResult & { actionId: string; kind: ActionPreview['kind'] }> }
@@ -66,6 +67,9 @@ export async function runCommand(command: ParsedCommand, dependencies: AppDepend
     case 'reply': value = await plan(dependencies, { kind: 'reply', target: { postId: command.postId }, text: command.text }, command.media); break;
     case 'like': value = await plan(dependencies, { kind: 'like', target: { postId: command.postId } }); break;
     case 'unlike': value = await plan(dependencies, { kind: 'unlike', target: { postId: command.postId } }); break;
+    case 'bookmark-list': value = await dependencies.client.bookmarks(command.limit); collection = true; break;
+    case 'bookmark-add': value = await plan(dependencies, { kind: 'bookmark-add', target: { postId: command.postId } }); break;
+    case 'bookmark-remove': value = await plan(dependencies, { kind: 'bookmark-remove', target: { postId: command.postId } }); break;
     case 'follow':
     case 'unfollow': {
       const target = await dependencies.client.getUser(command.username);

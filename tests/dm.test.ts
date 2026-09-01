@@ -78,6 +78,13 @@ describe('X direct messages', () => {
     expect(marked(logs)).toMatchObject({ state: 'challenge' });
   });
 
+  it('waits for the redirected DM PIN surface before treating the inbox as empty', async () => {
+    const logs: string[] = [];
+    const page = dmPage({ pinRequired: true, pinAfterWait: true });
+    await executeProgram(buildXProgram({ kind: 'list-dm', limit: 1, expectedUsername: 'imtamhn' }), page, logs);
+    expect(marked(logs)).toMatchObject({ state: 'challenge' });
+  });
+
   it('opens the exact recipient, submits once, and confirms the sent text', async () => {
     const logs: string[] = [];
     let submissions = 0;
@@ -99,17 +106,19 @@ describe('X direct messages', () => {
 
 function dmPage(options: {
   pinRequired?: boolean;
+  pinAfterWait?: boolean;
   conversations?: unknown[];
   messages?: () => unknown[];
   onSend?: () => void;
 }) {
+  let waited = false;
   return {
     goto: async () => undefined,
     url: () => 'https://x.com/i/chat',
     locator: (selector: string) => {
       if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
       if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
-      if (selector.includes('pin-code-input')) return { count: async () => Number(options.pinRequired === true) };
+      if (selector.includes('pin-code-input')) return { count: async () => Number(options.pinRequired === true && (options.pinAfterWait !== true || waited)) };
       if (selector.includes('dm-inbox-panel')) return {
         evaluateAll: async () => options.conversations ?? [],
         nth: () => ({ click: async () => undefined })
@@ -120,7 +129,7 @@ function dmPage(options: {
       if (selector.includes('dmComposerSendButton')) return { first: () => ({ click: async () => options.onSend?.() }) };
       throw new Error(`unexpected selector: ${selector}`);
     },
-    waitForTimeout: async () => undefined,
+    waitForTimeout: async () => { waited = true; },
     removeAllListeners: () => undefined,
     close: async () => undefined
   };

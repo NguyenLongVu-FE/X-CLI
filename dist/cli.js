@@ -8,15 +8,23 @@ export function helpText() {
     return `Usage: x <command>
 
 Commands:
-  auth login|status|logout
+  browser list
+  browser bind <username> --browser <browser-key>
+  browser status
+  auth status (deprecated alias of browser status)
   me
+  feed for-you|following [--limit <n>]
   timeline home|following
   search posts <query>
   post get|create|delete
-  reply <post> --text <text>
+  reply <post> --text <text> [--media <path>...]
   like|unlike <post>
   follow|unfollow <username>
   following check <username>
+  bookmark list|add|remove
+  dm list|read|send
+  bulk plan --input <file.json>
+  bulk execute <action-id>
   action execute <action-id>
 `;
 }
@@ -26,10 +34,7 @@ export async function main(arguments_) {
         return;
     }
     const command = parseArgs(arguments_);
-    const clientId = process.env.X_CLIENT_ID ?? '';
-    if (command.kind === 'auth-login' && clientId === '')
-        throw new XCliError('AUTH_REQUIRED', 'Set X_CLIENT_ID before login', 2);
-    process.stdout.write(await runCommand(command, createProductionApp(clientId)));
+    process.stdout.write(await runCommand(command, createProductionApp()));
 }
 if (process.argv[1] !== undefined && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
     void main(process.argv.slice(2)).catch((error) => {
@@ -38,7 +43,7 @@ if (process.argv[1] !== undefined && realpathSync(fileURLToPath(import.meta.url)
             process.exitCode = error.exitCode;
         }
         else {
-            process.stderr.write(`${JSON.stringify({ error: { code: 'API_ERROR', message: error instanceof Error ? error.message : 'Unknown error' } })}\n`);
+            process.stderr.write(`${JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: error instanceof Error ? error.message : 'Unknown error' } })}\n`);
             process.exitCode = 1;
         }
     });

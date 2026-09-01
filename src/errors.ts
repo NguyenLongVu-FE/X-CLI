@@ -20,7 +20,7 @@ export type ErrorCode =
   | 'MEDIA_REJECTED'
   | 'ACTION_UNKNOWN'
   | 'BULK_STOPPED'
-  | 'API_ERROR';
+  | 'INTERNAL_ERROR';
 
 export class XCliError extends Error {
   constructor(

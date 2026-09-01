@@ -5,7 +5,7 @@ import { parseArgs } from '../src/args.js';
 
 function dependencies(): AppDependencies {
   return {
-    oauth: { login: async () => ({ authenticated: true }), status: async () => ({ authenticated: true }), logout: async () => {} },
+    auth: { login: async () => ({ authenticated: true }), status: async () => ({ authenticated: true }), logout: async () => {} },
     browser: {
       list: async () => [{ key: 'install:Chrome:sabrina', profile: 'itstamhn@gmail.com' }],
       bind: async (username, browserKey) => ({ expectedUsername: username, browserKey }),

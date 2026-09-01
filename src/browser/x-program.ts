@@ -24,9 +24,9 @@ export function operationRuntimeSource(): string {
 }
 
 async function observeXAccount(page) {
-  const snapshotText = await snapshot({ page });
   const profileHref = await page.locator("[data-testid=AppTabBar_Profile_Link]").getAttribute("href", { timeout: 2000 }).catch(() => null);
   const displayName = await page.locator("[data-testid=SideNav_AccountSwitcher_Button]").locator("img").first().getAttribute("alt", { timeout: 2000 }).catch(() => null);
+  const snapshotText = profileHref === null ? (await snapshot({ page })).slice(0, 4000) : "authenticated";
   return { url: page.url(), profileHref, displayName, snapshot: snapshotText };
 }
 
@@ -151,7 +151,7 @@ async function readVisibleUser(page, includeFollowing) {
   const description = await page.locator('[data-testid="UserDescription"]').innerText({ timeout: 1000 }).catch(() => undefined);
   const value = { username, name, url: "https://x.com/" + username.slice(1), description };
   if (!includeFollowing) return value;
-  const followText = await page.locator('[data-testid$="-follow"]').first().innerText({ timeout: 2000 }).catch(() => null);
+  const followText = await page.locator('[data-testid$="-follow"], [data-testid$="-unfollow"]').first().innerText({ timeout: 2000 }).catch(() => null);
   if (followText !== "Follow" && followText !== "Following") return null;
   return { ...value, following: followText === "Following" };
 }
@@ -262,7 +262,7 @@ async function toggleFollow(action, page, account) {
   await openXPage(page, "https://x.com/" + username);
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
-  const button = page.locator('[data-testid$="-follow"]').first();
+  const button = page.locator('[data-testid$="-follow"], [data-testid$="-unfollow"]').first();
   const before = await button.innerText({ timeout: 2000 }).catch(() => null);
   const desired = action.kind === "follow" ? "Following" : "Follow";
   if (before === desired) return { account, outcome: "confirmed" };
@@ -294,7 +294,10 @@ async function sendDirectMessage(action, page, account) {
 }
 
 async function dmPinRequired(page) {
-  return await page.locator('[data-testid="pin-code-input-container"]').count() > 0;
+  const pin = page.locator('[data-testid="pin-code-input-container"]');
+  if (await pin.count() > 0) return true;
+  await page.waitForTimeout(1500);
+  return await pin.count() > 0;
 }
 
 async function readDmConversations(page) {
@@ -339,7 +342,7 @@ async function readVisibleDmMessages(page, account) {
 async function blockedWrite(page, account) {
   const value = await snapshot({ page });
   if (/verify your identity|confirm your account|unusual activity/i.test(value)) {
-    return { account: { ...account, url: page.url(), snapshot: value }, blocked: "challenge" };
+    return { account: { ...account, url: page.url(), snapshot: value.slice(0, 4000) }, blocked: "challenge" };
   }
   if (/may not be allowed|temporarily limited|try again later|something went wrong/i.test(value)) {
     return { account, blocked: "warning" };

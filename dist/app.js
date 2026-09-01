@@ -3,8 +3,6 @@ import { join } from 'node:path';
 import { ActionExecutor } from './actions/executor.js';
 import { ActionPlanner } from './actions/planner.js';
 import { ActionStore } from './actions/store.js';
-import { MacOsKeychainStore } from './auth/keychain.js';
-import { createOAuthClient } from './auth/oauth.js';
 import { BrowserXClient } from './browser/client.js';
 import { BrowserBindingStore } from './browser/config.js';
 import { PlaywriterRunner } from './browser/runner.js';
@@ -18,13 +16,13 @@ export async function runCommand(command, dependencies) {
     let collection = false;
     switch (command.kind) {
         case 'auth-login':
-            value = await dependencies.oauth.login();
+            value = await dependencies.auth.login();
             break;
         case 'auth-status':
-            value = await dependencies.oauth.status();
+            value = await dependencies.auth.status();
             break;
         case 'auth-logout':
-            await dependencies.oauth.logout();
+            await dependencies.auth.logout();
             value = { authenticated: false };
             break;
         case 'browser-list':
@@ -134,9 +132,7 @@ async function plan(dependencies, input, mediaPaths) {
     const account = await dependencies.client.me();
     return dependencies.planner.plan({ ...input, ...(media === undefined ? {} : { media }) }, account.id);
 }
-export function createProductionApp(clientId) {
-    const credentials = new MacOsKeychainStore();
-    const oauth = createOAuthClient(clientId, credentials);
+export function createProductionApp() {
     const supportRoot = join(homedir(), 'Library', 'Application Support', 'x-cli');
     const bindings = new BrowserBindingStore(join(supportRoot, 'browser.json'));
     const runner = new PlaywriterRunner();
@@ -144,7 +140,11 @@ export function createProductionApp(clientId) {
     const writer = new BrowserXWriter(runner, bindings);
     const store = new ActionStore(join(supportRoot, 'actions'));
     return {
-        oauth,
+        auth: {
+            login: async () => { throw browserSessionOnly(); },
+            status: () => client.status(),
+            logout: async () => { throw browserSessionOnly(); }
+        },
         browser: {
             list: () => client.listBrowsers(),
             bind: async (expectedUsername, browserKey) => {
@@ -164,4 +164,7 @@ export function createProductionApp(clientId) {
         bulkPlanner: new BulkPlanner(store),
         bulkExecutor: new BulkExecutor(store, async () => (await client.me()).id, writer)
     };
+}
+function browserSessionOnly() {
+    return new XCliError('INVALID_INPUT', 'Sign in or out directly in the bound Chrome profile; x-cli never handles X credentials', 2);
 }

@@ -4,7 +4,7 @@ import { helpText } from '../src/cli.js';
 
 describe('CLI help', () => {
   it('advertises every first-release command family', () => {
-    for (const command of ['auth', 'timeline', 'search', 'post', 'reply', 'like', 'follow', 'action']) {
+    for (const command of ['browser', 'feed', 'timeline', 'search', 'post', 'reply', 'like', 'follow', 'bookmark', 'dm', 'bulk', 'action']) {
       expect(helpText()).toContain(command);
     }
     expect(helpText()).toContain('post get|create|delete');

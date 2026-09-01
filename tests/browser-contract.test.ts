@@ -35,7 +35,7 @@ describe('X browser status contract', () => {
     expect(logs.filter((line) => line.startsWith('__XCLI_RESULT__'))).toEqual([
       '__XCLI_RESULT__{"url":"https://x.com/home","profileHref":"/imtamhn","displayName":"Tam","snapshot":"authenticated"}'
     ]);
-    expect(snapshotOptions).toEqual([{ page }]);
+    expect(snapshotOptions).toEqual([]);
     expect(attributeOptions).toEqual([{ timeout: 2_000 }, { timeout: 2_000 }]);
     expect(events).toEqual(['goto:https://x.com/home', 'listeners-removed', 'closed']);
   });
@@ -72,6 +72,11 @@ describe('X browser status contract', () => {
 });
 
 describe('X browser read program', () => {
+  it('recognizes the live unfollow control as an already-following relationship', () => {
+    const program = buildXProgram({ kind: 'check-following', username: 'XDevelopers', expectedUsername: 'imtamhn' });
+    expect(program).toContain('[data-testid$="-unfollow"]');
+  });
+
   it('selects For You and stops after three scrolls without new canonical posts', async () => {
     const logs: string[] = [];
     const selectedTabs: string[] = [];

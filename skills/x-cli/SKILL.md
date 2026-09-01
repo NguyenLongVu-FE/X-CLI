@@ -1,57 +1,26 @@
 ---
 name: x-cli
-description: Use when reading an authenticated X account or preparing explicitly approved post, reply, delete, like, unlike, follow, or unfollow actions through x-cli.
+description: Use when reading or managing a signed-in X account through the browser-backed x CLI, including feeds, posts, follows, bookmarks, DMs, media, or bounded bulk previews.
 ---
 
-# x-cli
+# X-CLI
 
-Use the official X API through the `x` executable. Never drive the X website, read browser cookies, invent commands, or expose OAuth values. Run `x --help` when syntax is uncertain.
+Use `x` to control the visible X interface through the explicitly bound Playwriter Chrome profile. Run `x --help` when syntax is uncertain. Never request cookies, tokens, passwords, or a DM PIN.
 
-## Read operations
+## Start safely
 
-These commands do not mutate X:
+Run `x browser status` before account work. If no profile is bound, run `x browser list`, show the available keys, and ask the user which exact account/key to bind. Do not guess. Stop on `LOGIN_REQUIRED`, `ACCOUNT_MISMATCH`, `CHALLENGE_REQUIRED`, `BROWSER_DISCONNECTED`, `X_UI_CHANGED`, or any warning.
 
-```bash
-x auth status
-x me
-x timeline home --limit 20
-x timeline following --limit 20
-x search posts "query" --limit 20
-x post get <post-id-or-url>
-x user get <username>
-x following check <username>
-```
+Read commands include `x me`, `x feed for-you|following`, `x search posts`, `x post get`, `x user get`, `x following check`, `x bookmark list`, and `x dm list|read`. Collections are NDJSON. Only read a DM conversation the user explicitly identifies; do not repeat DM bodies in diagnostics.
 
-Collections are NDJSON. Use `jq -s` when an array is needed. `home` and `following` both represent the official reverse-chronological home timeline. The X API does not expose the algorithmic For You feed.
+## Writes
 
-## Write operations
+Every write command returns a preview without changing X. Show its exact account, action, target, text/media, expiry, and action ID. Execute `x action execute <action-id>` only after the user approves that exact preview. Approval does not carry to edits, another target, another ID, or an expired preview.
 
-Every write requires two separate commands. The first creates a five-minute preview and makes no X mutation:
+For DM send, require the exact recipient and exact content. For an ambiguous result, report `unknown`; do not retry. A broad statement such as “full authority” does not authorize later unreviewed actions.
 
-```bash
-x post create --text "text"
-x post delete <post-id-or-url>
-x reply <post-id-or-url> --text "text"
-x like <post-id-or-url>
-x unlike <post-id-or-url>
-x follow <username>
-x unfollow <username>
-```
+## Bulk
 
-Show the preview's exact account, action, target, and text to the user. Ask for explicit approval of that single action ID. Only after approval run:
+`x bulk plan --input <file.json>` accepts only an explicit user-supplied list of 1–20 actions for the bound account. It must not discover targets, generate engagement text, or create mass unsolicited messages. Show the complete preview and run `x bulk execute <action-id>` only after approval. Bulk runs sequentially, stops on the first safety error or unknown result, and never resumes automatically.
 
-```bash
-x action execute <action-id>
-```
-
-Approval never carries to another target, edited text, expired preview, or additional action ID. There is no batch approval and no bypass flag.
-
-For a temporary post/reply verification, execute and approve each step separately, then delete the reply before deleting its parent post. Cleanup can fail after content becomes visible, so never promise zero visibility or guaranteed cleanup before the deletion responses are confirmed.
-
-Reject bulk or autonomous engagement, identical unsolicited replies, engagement farming, background likes, and follow churn. A broad statement such as "full authority" is not approval for a later action ID.
-
-## Authentication
-
-`x auth login` opens OAuth in the user's browser. `x auth logout` removes local Keychain credentials. Never request, print, copy, or store access tokens, refresh tokens, cookies, or authorization codes.
-
-If a write has an ambiguous network failure, report that the outcome is unknown and read the target state before proposing any new action. Never retry the write blindly.
+Reject requests to bypass previews, continue after warnings/challenges, farm engagement, mass-follow discovered users, or send identical unsolicited DMs/replies. Installing this skill does not grant permission for live mutations.

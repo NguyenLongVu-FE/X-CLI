@@ -6,8 +6,6 @@ import { ActionExecutor } from './actions/executor.js';
 import { ActionPlanner } from './actions/planner.js';
 import { ActionStore } from './actions/store.js';
 import type { ActionInput, ActionPreview, BulkExecutionResult, BulkPreview, WriteResult } from './actions/types.js';
-import { MacOsKeychainStore } from './auth/keychain.js';
-import { createOAuthClient } from './auth/oauth.js';
 import { BrowserXClient } from './browser/client.js';
 import { BrowserBindingStore } from './browser/config.js';
 import { PlaywriterRunner } from './browser/runner.js';
@@ -18,7 +16,7 @@ import { BulkPlanner } from './bulk/planner.js';
 import { XCliError } from './errors.js';
 import { describeMedia } from './media.js';
 
-interface OAuthCommands {
+interface AuthCommands {
   login(): Promise<unknown>;
   status(): Promise<unknown>;
   logout(): Promise<void>;
@@ -48,7 +46,7 @@ interface BulkPlanCommands { plan(path: string, accountId: string): Promise<Bulk
 interface BulkExecuteCommands { execute(id: string): Promise<BulkExecutionResult> }
 
 export interface AppDependencies {
-  oauth: OAuthCommands;
+  auth: AuthCommands;
   browser: BrowserCommands;
   client: ReadCommands;
   planner: Planner;
@@ -61,9 +59,9 @@ export async function runCommand(command: ParsedCommand, dependencies: AppDepend
   let value: unknown;
   let collection = false;
   switch (command.kind) {
-    case 'auth-login': value = await dependencies.oauth.login(); break;
-    case 'auth-status': value = await dependencies.oauth.status(); break;
-    case 'auth-logout': await dependencies.oauth.logout(); value = { authenticated: false }; break;
+    case 'auth-login': value = await dependencies.auth.login(); break;
+    case 'auth-status': value = await dependencies.auth.status(); break;
+    case 'auth-logout': await dependencies.auth.logout(); value = { authenticated: false }; break;
     case 'browser-list': value = await dependencies.browser.list(); collection = true; break;
     case 'browser-bind': value = await dependencies.browser.bind(command.username, command.browserKey); break;
     case 'browser-status': value = await dependencies.browser.status(); break;
@@ -110,9 +108,7 @@ async function plan(dependencies: AppDependencies, input: ActionInput, mediaPath
   return dependencies.planner.plan({ ...input, ...(media === undefined ? {} : { media }) }, account.id);
 }
 
-export function createProductionApp(clientId: string): AppDependencies {
-  const credentials = new MacOsKeychainStore();
-  const oauth = createOAuthClient(clientId, credentials);
+export function createProductionApp(): AppDependencies {
   const supportRoot = join(homedir(), 'Library', 'Application Support', 'x-cli');
   const bindings = new BrowserBindingStore(join(supportRoot, 'browser.json'));
   const runner = new PlaywriterRunner();
@@ -120,7 +116,11 @@ export function createProductionApp(clientId: string): AppDependencies {
   const writer = new BrowserXWriter(runner, bindings);
   const store = new ActionStore(join(supportRoot, 'actions'));
   return {
-    oauth,
+    auth: {
+      login: async () => { throw browserSessionOnly(); },
+      status: () => client.status(),
+      logout: async () => { throw browserSessionOnly(); }
+    },
     browser: {
       list: () => client.listBrowsers(),
       bind: async (expectedUsername, browserKey) => {
@@ -140,4 +140,8 @@ export function createProductionApp(clientId: string): AppDependencies {
     bulkPlanner: new BulkPlanner(store),
     bulkExecutor: new BulkExecutor(store, async () => (await client.me()).id, writer)
   };
+}
+
+function browserSessionOnly(): XCliError {
+  return new XCliError('INVALID_INPUT', 'Sign in or out directly in the bound Chrome profile; x-cli never handles X credentials', 2);
 }

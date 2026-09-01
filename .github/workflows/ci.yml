@@ -20,6 +20,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:dist
+      - run: pnpm test:browser-process
       - run: pnpm test:package
       - run: pnpm test:git-install
       - run: pnpm test:skill-install

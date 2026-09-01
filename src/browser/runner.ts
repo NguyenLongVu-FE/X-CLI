@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { XCliError } from '../errors.js';
 import { BrowserLock } from './lock.js';
 import { systemExecFile, type ExecFileLike } from './process.js';
-import type { BrowserOperation } from './types.js';
+import type { BrowserDescriptor, BrowserOperation } from './types.js';
 
 const RESULT_PREFIX = '__XCLI_RESULT__';
 
@@ -30,14 +30,21 @@ export class PlaywriterRunner {
     this.withLock = options.withLock ?? ((work) => lock.withLock(work));
   }
 
-  run<T>(operation: BrowserOperation): Promise<T> {
-    return this.withLock(async () => this.runInSession<T>(operation));
+  async listBrowsers(): Promise<BrowserDescriptor[]> {
+    const result = await this.call(['browser', 'list']);
+    const browsers = parseBrowserList(result.stdout);
+    if (browsers.length === 0) throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter did not report an available browser', 2);
+    return browsers;
   }
 
-  private async runInSession<T>(operation: BrowserOperation): Promise<T> {
+  run<T>(operation: BrowserOperation, browserKey: string): Promise<T> {
+    return this.withLock(async () => this.runInSession<T>(operation, browserKey));
+  }
+
+  private async runInSession<T>(operation: BrowserOperation, browserKey: string): Promise<T> {
     let sessionId: string | undefined;
     try {
-      const created = await this.call(['session', 'new']);
+      const created = await this.call(['session', 'new', '--browser', browserKey]);
       sessionId = parseSessionId(created.stdout);
       const result = await this.call(['-s', sessionId, '--timeout', String(this.timeoutMs), '-e', this.options.buildProgram(operation)]);
       return parseMarkedJson<T>(result.stdout);
@@ -58,6 +65,14 @@ export class PlaywriterRunner {
       throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter browser command failed', 2);
     }
   }
+}
+
+function parseBrowserList(stdout: string): BrowserDescriptor[] {
+  return stdout.split(/\r?\n/).flatMap((line) => {
+    const columns = line.trim().split(/\s{2,}/);
+    if (columns.length !== 4 || columns[0] === 'KEY') return [];
+    return [{ key: columns[0]!, type: columns[1]!, browser: columns[2]!, profile: columns[3]! }];
+  });
 }
 
 function parseSessionId(stdout: string): string {

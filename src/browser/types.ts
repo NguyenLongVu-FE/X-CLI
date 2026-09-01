@@ -17,3 +17,10 @@ export interface BrowserStatus {
   authenticated: true;
   username: string;
 }
+
+export interface BrowserDescriptor {
+  key: string;
+  type: string;
+  browser: string;
+  profile: string;
+}

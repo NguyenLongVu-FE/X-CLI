@@ -29,9 +29,10 @@ describe('Playwriter runner', () => {
   it('returns marked JSON and deletes the isolated session', async () => {
     const fake = lifecycle();
     const runner = new PlaywriterRunner({ execFile: fake.execFile, buildProgram: () => 'program', withLock: async (work) => work() });
-    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' })).resolves.toEqual({ username: 'imtamhn' });
+    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' }, 'install:Chrome:abc')).resolves.toEqual({ username: 'imtamhn' });
     expect(fake.activeSessions.size).toBe(0);
     expect(fake.calls.map(({ args }) => args.slice(0, 2))).toEqual([['session', 'new'], ['-s', '17'], ['session', 'delete']]);
+    expect(fake.calls[0]!.args).toEqual(['session', 'new', '--browser', 'install:Chrome:abc']);
     expect(fake.calls.every(({ shell }) => shell === false)).toBe(true);
   });
 
@@ -46,21 +47,21 @@ describe('Playwriter runner', () => {
       return original(file, args, options);
     };
     const runner = new PlaywriterRunner({ execFile: fake.execFile, buildProgram: () => 'program', withLock: async (work) => work() });
-    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' })).resolves.toEqual({ username: 'imtamhn' });
+    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' }, 'install:Chrome:abc')).resolves.toEqual({ username: 'imtamhn' });
     expect(fake.activeSessions.size).toBe(0);
   });
 
   it('deletes the session when browser output is malformed', async () => {
     const fake = lifecycle('ordinary diagnostic\n');
     const runner = new PlaywriterRunner({ execFile: fake.execFile, buildProgram: () => 'program', withLock: async (work) => work() });
-    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' })).rejects.toMatchObject({ code: 'X_UI_CHANGED' });
+    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' }, 'install:Chrome:abc')).rejects.toMatchObject({ code: 'X_UI_CHANGED' });
     expect(fake.activeSessions.size).toBe(0);
   });
 
   it('maps a missing Playwriter executable without exposing process output', async () => {
     const execFile: ExecFileLike = async () => { throw Object.assign(new Error('secret process output'), { code: 'ENOENT' }); };
     const runner = new PlaywriterRunner({ execFile, buildProgram: () => 'program', withLock: async (work) => work() });
-    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' })).rejects.toMatchObject({
+    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' }, 'install:Chrome:abc')).rejects.toMatchObject({
       code: 'PLAYWRITER_UNAVAILABLE', message: 'Playwriter executable is not available'
     });
   });
@@ -72,8 +73,27 @@ describe('Playwriter runner', () => {
       return lifecycleStep(fake, file, args, options);
     };
     const runner = new PlaywriterRunner({ execFile: fake.execFile, buildProgram: () => 'program', withLock: async (work) => work() });
-    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' })).rejects.toMatchObject({ code: 'BROWSER_DISCONNECTED' });
+    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' }, 'install:Chrome:abc')).rejects.toMatchObject({ code: 'BROWSER_DISCONNECTED' });
     expect(fake.activeSessions.size).toBe(0);
+  });
+
+  it('lists every browser without creating a session', async () => {
+    const output = `Waiting for extension to connect...
+KEY                            TYPE       BROWSER            PROFILE
+---------------------------------------------------------------------------
+install:Chrome:abc             extension  Chrome             itstamhn@gmail.com
+headless                       headless   Chrome (Headless)  -
+
+Use with: playwriter session new [--browser <key>]
+`;
+    const calls: string[][] = [];
+    const execFile: ExecFileLike = async (_file, args) => { calls.push([...args]); return { stdout: output, stderr: '' }; };
+    const runner = new PlaywriterRunner({ execFile, buildProgram: () => 'program', withLock: async (work) => work() });
+    await expect(runner.listBrowsers()).resolves.toEqual([
+      { key: 'install:Chrome:abc', type: 'extension', browser: 'Chrome', profile: 'itstamhn@gmail.com' },
+      { key: 'headless', type: 'headless', browser: 'Chrome (Headless)', profile: '-' }
+    ]);
+    expect(calls).toEqual([['browser', 'list']]);
   });
 });
 

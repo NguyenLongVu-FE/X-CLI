@@ -1,13 +1,9 @@
 import { XCliError } from '../errors.js';
 import type { BrowserBinding, BrowserBindingStore } from './config.js';
-import type { BrowserDescriptor, BrowserOperation, BrowserStatus } from './types.js';
+import { normalizeBrowserPost, normalizeBrowserPosts, normalizeBrowserUser } from './normalize.js';
+import type { BrowserAccountObservation, BrowserDescriptor, BrowserOperation, BrowserPost, BrowserReadEnvelope, BrowserStatus, BrowserUser } from './types.js';
 
-export interface StatusObservation {
-  url: string;
-  profileHref: string | null;
-  displayName?: string | null;
-  snapshot: string;
-}
+export type StatusObservation = BrowserAccountObservation;
 
 interface OperationRunner {
   listBrowsers(): Promise<BrowserDescriptor[]>;
@@ -15,6 +11,12 @@ interface OperationRunner {
 }
 
 type BindingReader = Pick<BrowserBindingStore, 'get'>;
+type ReadInput =
+  | { kind: 'read-feed'; feed: 'for-you' | 'following'; limit: number }
+  | { kind: 'search-posts'; query: string; limit: number }
+  | { kind: 'read-post'; postId: string }
+  | { kind: 'read-user'; username: string }
+  | { kind: 'check-following'; username: string };
 
 export class BrowserXClient {
   constructor(private readonly runner: OperationRunner, private readonly bindings: BindingReader) {}
@@ -36,6 +38,38 @@ export class BrowserXClient {
     };
   }
 
+  async forYouFeed(limit: number): Promise<BrowserPost[]> {
+    return normalizeBrowserPosts(await this.read({ kind: 'read-feed', feed: 'for-you', limit }), limit);
+  }
+
+  async followingFeed(limit: number): Promise<BrowserPost[]> {
+    return normalizeBrowserPosts(await this.read({ kind: 'read-feed', feed: 'following', limit }), limit);
+  }
+
+  homeTimeline(limit: number): Promise<BrowserPost[]> { return this.forYouFeed(limit); }
+  followingTimeline(limit: number): Promise<BrowserPost[]> { return this.followingFeed(limit); }
+
+  async searchPosts(query: string, limit: number): Promise<BrowserPost[]> {
+    return normalizeBrowserPosts(await this.read({ kind: 'search-posts', query, limit }), limit);
+  }
+
+  async getPost(postId: string): Promise<BrowserPost> {
+    return normalizeBrowserPost(await this.read({ kind: 'read-post', postId }));
+  }
+
+  async getUser(username: string): Promise<BrowserUser> {
+    return normalizeBrowserUser(await this.read({ kind: 'read-user', username }));
+  }
+
+  async isFollowing(username: string): Promise<{ username: string; userId: string; following: boolean }> {
+    const value = await this.read({ kind: 'check-following', username });
+    const user = normalizeBrowserUser(value);
+    if (typeof value !== 'object' || value === null || !('following' in value) || typeof value.following !== 'boolean') {
+      throw new XCliError('X_UI_CHANGED', 'X following state was not visible', 2);
+    }
+    return { username: user.username, userId: user.id, following: value.following };
+  }
+
   private async observeStatus(): Promise<{ status: BrowserStatus; observation: StatusObservation }> {
     const binding = await this.requiredBinding();
     const observation = await this.runner.run<StatusObservation>(
@@ -43,6 +77,21 @@ export class BrowserXClient {
       binding.browserKey
     );
     return { status: classifyStatusObservation(observation, binding.expectedUsername), observation };
+  }
+
+  private async read(operation: ReadInput): Promise<unknown> {
+    const binding = await this.requiredBinding();
+    const input = { ...operation, expectedUsername: binding.expectedUsername } as BrowserOperation;
+    const result = await this.runner.run<BrowserReadEnvelope<unknown>>(input, binding.browserKey);
+    if (typeof result !== 'object' || result === null || !('account' in result)) {
+      throw new XCliError('X_UI_CHANGED', 'X did not return an account observation', 2);
+    }
+    classifyStatusObservation(result.account, binding.expectedUsername);
+    if (result.state === 'not-found') throw new XCliError('TARGET_NOT_FOUND', 'The requested X resource was not found', 3);
+    if (result.state !== 'ok' || result.value === null || result.value === undefined) {
+      throw new XCliError('X_UI_CHANGED', 'X returned an unexpected visible page structure', 2);
+    }
+    return result.value;
   }
 
   private async requiredBinding(): Promise<BrowserBinding> {

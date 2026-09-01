@@ -70,3 +70,44 @@ describe('X browser status contract', () => {
     }, 'imtamhn')).toThrowError(expect.objectContaining({ code: 'X_UI_CHANGED' }));
   });
 });
+
+describe('X browser read program', () => {
+  it('selects For You and stops after three scrolls without new canonical posts', async () => {
+    const logs: string[] = [];
+    const selectedTabs: string[] = [];
+    let scrolls = 0;
+    const rawPost = { url: '/alice/status/101', text: 'hello', authorUsername: 'alice' };
+    const page = {
+      goto: async () => undefined,
+      url: () => 'https://x.com/home',
+      getByRole: (_role: string, options: { name: string }) => {
+        selectedTabs.push(options.name);
+        return { getAttribute: async () => 'true', click: async () => undefined };
+      },
+      locator: (selector: string) => {
+        if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
+        if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
+        if (selector.includes('tweet')) return { evaluateAll: async () => [rawPost] };
+        throw new Error(`unexpected selector: ${selector}`);
+      },
+      evaluate: async () => { scrolls += 1; },
+      removeAllListeners: () => undefined,
+      close: async () => undefined
+    };
+    const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
+    const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({
+      kind: 'read-feed', feed: 'for-you', limit: 5, expectedUsername: 'imtamhn'
+    }));
+
+    await execute(
+      { newPage: async () => page }, async () => undefined, async () => [], async () => 'authenticated', {},
+      { log: (value: unknown) => { logs.push(String(value)); } }
+    );
+
+    const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
+    expect(result).toMatchObject({ state: 'ok', value: [{ ...rawPost, url: 'https://x.com/alice/status/101' }] });
+    expect(result.account.profileHref).toBe('/imtamhn');
+    expect(selectedTabs).toContain('For you');
+    expect(scrolls).toBe(3);
+  });
+});

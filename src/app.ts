@@ -19,6 +19,8 @@ interface OAuthCommands {
 }
 interface ReadCommands {
   me(): Promise<{ id: string; name: string; username: string }>;
+  forYouFeed(limit: number): Promise<unknown[]>;
+  followingFeed(limit: number): Promise<unknown[]>;
   homeTimeline(limit: number): Promise<unknown[]>;
   followingTimeline(limit: number): Promise<unknown[]>;
   searchPosts(query: string, limit: number): Promise<unknown[]>;
@@ -39,6 +41,8 @@ export async function runCommand(command: ParsedCommand, dependencies: AppDepend
     case 'auth-status': value = await dependencies.oauth.status(); break;
     case 'auth-logout': await dependencies.oauth.logout(); value = { authenticated: false }; break;
     case 'me': value = await dependencies.client.me(); break;
+    case 'feed-for-you': value = await dependencies.client.forYouFeed(command.limit); collection = true; break;
+    case 'feed-following': value = await dependencies.client.followingFeed(command.limit); collection = true; break;
     case 'timeline-home': value = await dependencies.client.homeTimeline(command.limit); collection = true; break;
     case 'timeline-following': value = await dependencies.client.followingTimeline(command.limit); collection = true; break;
     case 'search-posts': value = await dependencies.client.searchPosts(command.query, command.limit); collection = true; break;
@@ -76,7 +80,10 @@ export function createProductionApp(clientId: string): AppDependencies {
   const store = new ActionStore(join(homedir(), 'Library', 'Application Support', 'x-cli', 'actions'));
   return {
     oauth,
-    client,
+    client: Object.assign(client, {
+      forYouFeed: (limit: number) => client.homeTimeline(limit),
+      followingFeed: (limit: number) => client.followingTimeline(limit)
+    }),
     planner: new ActionPlanner(store),
     executor: new ActionExecutor(store, async () => (await client.me()).id, new XWrites(transport))
   };

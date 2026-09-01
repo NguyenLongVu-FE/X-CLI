@@ -1,0 +1,5 @@
+[
+  {"url":"/alice/status/101","text":"First post","authorUsername":"@Alice","createdAt":"2026-09-01T01:00:00.000Z","metrics":{"replies":"2","likes":"1.2K"}},
+  {"url":"https://x.com/bob/status/202/photo/1","text":"Second post","authorUsername":"bob"},
+  {"url":"https://twitter.com/alice/status/101","text":"duplicate","authorUsername":"alice"}
+]

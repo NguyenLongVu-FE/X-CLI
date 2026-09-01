@@ -8,6 +8,7 @@ function dependencies(): AppDependencies {
     oauth: { login: async () => ({ authenticated: true }), status: async () => ({ authenticated: true }), logout: async () => {} },
     client: {
       me: async () => ({ id: '1', name: 'Tam', username: 'imtamhn' }),
+      forYouFeed: async () => [{ id: '10', text: 'home' }], followingFeed: async () => [{ id: '11', text: 'following' }],
       homeTimeline: async () => [{ id: '10', text: 'home' }], followingTimeline: async () => [{ id: '11', text: 'following' }],
       searchPosts: async () => [{ id: '12', text: 'search' }], getPost: async (id) => ({ id, text: 'post' }),
       getUser: async (username) => ({ id: '2', name: 'User', username }),
@@ -22,6 +23,8 @@ describe('complete CLI wiring', () => {
   it('returns singular reads as JSON and timelines as NDJSON', async () => {
     expect(await runCommand(parseArgs(['me']), dependencies())).toBe('{"id":"1","name":"Tam","username":"imtamhn"}\n');
     expect(await runCommand(parseArgs(['timeline', 'home', '--limit', '5']), dependencies())).toBe('{"id":"10","text":"home"}\n');
+    expect(await runCommand(parseArgs(['feed', 'for-you', '--limit', '5']), dependencies())).toBe(await runCommand(parseArgs(['timeline', 'home', '--limit', '5']), dependencies()));
+    expect(await runCommand(parseArgs(['feed', 'following', '--limit', '5']), dependencies())).toBe(await runCommand(parseArgs(['timeline', 'following', '--limit', '5']), dependencies()));
     expect(await runCommand(parseArgs(['search', 'posts', 'AI']), dependencies())).toContain('"search"');
     expect(await runCommand(parseArgs(['post', 'get', '10']), dependencies())).toContain('"id":"10"');
     expect(await runCommand(parseArgs(['user', 'get', '@tam']), dependencies())).toContain('"username":"tam"');

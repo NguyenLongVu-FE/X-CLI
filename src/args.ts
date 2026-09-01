@@ -4,8 +4,8 @@ import { normalizeUsername, parsePostRef } from './identifiers.js';
 type WithPretty = { pretty: boolean };
 export type ParsedCommand =
   | ({ kind: 'auth-login' | 'auth-status' | 'auth-logout' | 'me' } & WithPretty)
-  | ({ kind: 'browser-status' } & WithPretty)
-  | ({ kind: 'browser-bind'; username: string } & WithPretty)
+  | ({ kind: 'browser-list' | 'browser-status' } & WithPretty)
+  | ({ kind: 'browser-bind'; username: string; browserKey: string } & WithPretty)
   | ({ kind: 'feed-for-you' | 'feed-following'; limit: number } & WithPretty)
   | ({ kind: 'timeline-home' | 'timeline-following'; limit: number } & WithPretty)
   | ({ kind: 'search-posts'; query: string; limit: number } & WithPretty)
@@ -32,10 +32,10 @@ export function parseArgs(argv: readonly string[]): ParsedCommand {
   let result: ParsedCommand;
   if (command === 'auth login' || command === 'auth status' || command === 'auth logout' || command === 'me') {
     result = { kind: command.replace(' ', '-') as ParsedCommand['kind'], pretty } as ParsedCommand;
-  } else if (command === 'browser status') {
-    result = { kind: 'browser-status', pretty };
+  } else if (command === 'browser list' || command === 'browser status') {
+    result = { kind: command.replace(' ', '-') as 'browser-list' | 'browser-status', pretty };
   } else if (positional[0] === 'browser' && positional[1] === 'bind' && positional.length === 3) {
-    result = { kind: 'browser-bind', username: normalizeUsername(positional[2]!), pretty };
+    result = { kind: 'browser-bind', username: normalizeUsername(positional[2]!), browserKey: takeBrowserKey(options), pretty };
   } else if (positional[0] === 'feed' && ['for-you', 'following'].includes(positional[1] ?? '') && positional.length === 2) {
     result = { kind: `feed-${positional[1]}` as 'feed-for-you' | 'feed-following', limit: takeLimit(options), pretty };
   } else if (positional[0] === 'timeline' && ['home', 'following'].includes(positional[1] ?? '') && positional.length === 2) {
@@ -89,7 +89,7 @@ function split(argv: readonly string[]): { positional: string[]; options: Map<st
     const value = argv[index]!;
     if (!value.startsWith('--')) { positional.push(value); continue; }
     const name = value.slice(2);
-    if (name === 'pretty' || !['limit', 'text', 'input'].includes(name)) { options.set(name, true); continue; }
+    if (name === 'pretty' || !['limit', 'text', 'input', 'browser'].includes(name)) { options.set(name, true); continue; }
     const next = argv[index + 1];
     if (next === undefined || next.startsWith('--')) throw new XCliError('INVALID_INPUT', `Missing value for --${name}`);
     options.set(name, next);
@@ -125,5 +125,14 @@ function takeInputPath(options: Map<string, string | true>): string {
   const value = options.get('input');
   options.delete('input');
   if (typeof value !== 'string' || value.trim() === '') throw new XCliError('INVALID_INPUT', 'Bulk input file is required');
+  return value;
+}
+
+function takeBrowserKey(options: Map<string, string | true>): string {
+  const value = options.get('browser');
+  options.delete('browser');
+  if (typeof value !== 'string' || !/^[^\s\u0000-\u001f\u007f]{1,200}$/.test(value)) {
+    throw new XCliError('INVALID_INPUT', 'Browser key is required');
+  }
   return value;
 }

@@ -34,10 +34,14 @@ describe('command parsing', () => {
   });
 
   it('parses browser binding and both real web feeds', () => {
-    expect(parseArgs(['browser', 'bind', '@imtamhn'])).toEqual({ kind: 'browser-bind', username: 'imtamhn', pretty: false });
+    expect(parseArgs(['browser', 'list'])).toEqual({ kind: 'browser-list', pretty: false });
+    expect(parseArgs(['browser', 'bind', '@imtamhn', '--browser', 'install:Chrome:abc'])).toEqual({
+      kind: 'browser-bind', username: 'imtamhn', browserKey: 'install:Chrome:abc', pretty: false
+    });
     expect(parseArgs(['browser', 'status'])).toEqual({ kind: 'browser-status', pretty: false });
     expect(parseArgs(['feed', 'for-you', '--limit', '5'])).toEqual({ kind: 'feed-for-you', limit: 5, pretty: false });
     expect(parseArgs(['feed', 'following'])).toEqual({ kind: 'feed-following', limit: 20, pretty: false });
+    expect(() => parseArgs(['browser', 'bind', '@imtamhn'])).toThrow('Browser key is required');
   });
 
   it('parses bookmark and direct-message commands without sending them', () => {

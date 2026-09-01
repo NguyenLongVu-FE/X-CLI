@@ -38,7 +38,9 @@ The adapter invokes the locally installed Playwriter executable. It passes bundl
 
 ## Browser binding and account safety
 
-`x browser bind <username>` records only the expected username in X-CLI configuration. It never stores browser credentials. `x browser status` checks that Playwriter is reachable, an X page can load, the session is authenticated, and the active username matches the binding.
+`x browser list` reports the browser key, browser type, browser name, and Chrome profile label exposed by Playwriter. `x browser bind <username> --browser <browser-key>` records the expected username and selected Playwriter browser key in X-CLI configuration. It never stores browser credentials. `x browser status` creates a session with that exact key, checks that an X page can load, the session is authenticated, and the active username matches the binding.
+
+The browser key is machine-local setup data and may differ on another Mac. A missing key, a key that Playwriter no longer lists, or multiple profiles without an explicit binding fails loud; X-CLI never guesses a profile.
 
 Every command performs the same account check. Reads fail with `ACCOUNT_MISMATCH` when the profile is logged in as another user. A write preview includes the bound username and a fresh observed account identity. Execution observes the identity again before consuming the action. A mismatch leaves the action unconsumed.
 
@@ -49,7 +51,8 @@ Every command performs the same account check. Reads fail with `ACCOUNT_MISMATCH
 Primary commands:
 
 ```text
-x browser bind <username>
+x browser list
+x browser bind <username> --browser <browser-key>
 x browser status
 x me
 
@@ -126,4 +129,4 @@ Live verification on Tambot covers browser status, account identity, For You, Fo
 
 Implementation proceeds in vertical slices: Playwriter connection and binding, read parity, single-write parity, media, bookmarks, DM, then bulk. The official API implementation remains testable but is not used by production during migration. It is removed with OAuth and credential setup only after all replacement slices pass.
 
-README, `--help`, and the bundled agent skill are updated in the same release. A fresh public GitHub archive install on a second Mac must run `x --help` and `x browser status`. The final report lists every automated and live check, any skipped live write, the tested Chrome/X locale, and external limitations. No skipped check may be described as passing.
+README, `--help`, and the bundled agent skill are updated in the same release. A fresh public GitHub archive install on a second Mac must run `x --help`, `x browser list`, bind an explicitly selected profile, and run `x browser status`. The final report lists every automated and live check, any skipped live write, the tested Chrome/X locale, and external limitations. No skipped check may be described as passing.

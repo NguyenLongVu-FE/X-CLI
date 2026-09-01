@@ -32,16 +32,17 @@
 - Test: `tests/browser-config.test.ts`, `tests/args.test.ts`
 
 **Interfaces:**
-- Produces: `BrowserOperation`, `BrowserStatus`, `BrowserBindingStore.get(): Promise<string | null>`, and `BrowserBindingStore.set(username): Promise<void>`.
-- Produces parsed commands `browser-bind`, `browser-status`, `feed-for-you`, `feed-following`, bookmark, DM, media, and bulk variants.
+- Produces: `BrowserOperation`, `BrowserStatus`, `BrowserBinding`, `BrowserBindingStore.get(): Promise<BrowserBinding | null>`, and `BrowserBindingStore.set(binding): Promise<void>`.
+- Produces parsed commands `browser-list`, `browser-bind`, `browser-status`, `feed-for-you`, `feed-following`, bookmark, DM, media, and bulk variants.
 
 - [ ] **Step 1: Write failing parser and configuration tests.**
 
 ```ts
-expect(parseArgs(['browser', 'bind', '@imtamhn'])).toMatchObject({ kind: 'browser-bind', username: 'imtamhn' })
+expect(parseArgs(['browser', 'list'])).toMatchObject({ kind: 'browser-list' })
+expect(parseArgs(['browser', 'bind', '@imtamhn', '--browser', 'install:Chrome:abc'])).toMatchObject({ kind: 'browser-bind', username: 'imtamhn', browserKey: 'install:Chrome:abc' })
 expect(parseArgs(['feed', 'for-you', '--limit', '5'])).toMatchObject({ kind: 'feed-for-you', limit: 5 })
-await store.set('imtamhn')
-expect(await store.get()).toBe('imtamhn')
+await store.set({ expectedUsername: 'imtamhn', browserKey: 'install:Chrome:abc' })
+expect(await store.get()).toEqual({ expectedUsername: 'imtamhn', browserKey: 'install:Chrome:abc' })
 ```
 
 - [ ] **Step 2: Run `pnpm test -- tests/args.test.ts tests/browser-config.test.ts`** and verify failure because browser commands and the binding store do not exist.
@@ -68,7 +69,7 @@ export interface BrowserStatus {
 }
 ```
 
-Store `{ "expectedUsername": "imtamhn" }` with mode `0600` below `~/Library/Application Support/x-cli/config.json`; reject an empty or malformed username. Extend `ErrorCode` with every browser code listed in the spec.
+Store `{ "expectedUsername": "imtamhn", "browserKey": "install:Chrome:abc" }` with mode `0600` below `~/Library/Application Support/x-cli/config.json`; reject an empty or malformed username or browser key. Extend `ErrorCode` with every browser code listed in the spec.
 
 - [ ] **Step 4: Run `pnpm typecheck && pnpm test -- tests/args.test.ts tests/browser-config.test.ts`** and verify pass.
 
@@ -83,16 +84,18 @@ Store `{ "expectedUsername": "imtamhn" }` with mode `0600` below `~/Library/Appl
 
 **Interfaces:**
 - Consumes: `BrowserOperation` from Task 1.
-- Produces: `PlaywriterRunner.run<T>(operation): Promise<T>` and `BrowserLock.withLock<T>(work): Promise<T>`.
+- Produces: `PlaywriterRunner.listBrowsers(): Promise<BrowserDescriptor[]>`, `PlaywriterRunner.run<T>(operation, browserKey): Promise<T>`, and `BrowserLock.withLock<T>(work): Promise<T>`.
 
 - [ ] **Step 1: Write failing lifecycle tests using an injected `execFile` fake.**
 
 ```ts
 const runner = new PlaywriterRunner({ execFile: fakeExec, timeoutMs: 30_000 })
-await expect(runner.run<BrowserStatus>({ kind: 'status', expectedUsername: 'imtamhn' }))
+await expect(runner.run<BrowserStatus>({ kind: 'status', expectedUsername: 'imtamhn' }, 'install:Chrome:abc'))
   .resolves.toMatchObject({ username: 'imtamhn' })
-expect(calls.map((call) => call.args.slice(0, 2))).toEqual([
-  ['session', 'new'], ['-s', '17'], ['session', 'delete']
+expect(calls.map((call) => call.args)).toEqual([
+  ['session', 'new', '--browser', 'install:Chrome:abc'],
+  expect.arrayContaining(['-s', '17']),
+  ['session', 'delete', '17']
 ])
 ```
 
@@ -104,7 +107,7 @@ Assert cleanup after success and failure, timeout mapping, missing executable ma
 
 ```ts
 const RESULT_PREFIX = '__XCLI_RESULT__'
-const sessionId = (await execFile('playwriter', ['session', 'new'], options)).stdout.trim()
+const sessionId = parseSessionId((await execFile('playwriter', ['session', 'new', '--browser', browserKey], options)).stdout)
 try {
   const result = await execFile('playwriter', ['-s', sessionId, '--timeout', String(timeoutMs), '-e', program], options)
   return parseMarkedJson<T>(result.stdout, RESULT_PREFIX)
@@ -128,11 +131,12 @@ Pin `playwriter` to `0.4.0`. The lock file contains PID and start time, uses exc
 
 **Interfaces:**
 - Consumes: `PlaywriterRunner`, `BrowserBindingStore`.
-- Produces: `BrowserXClient.status()`, `BrowserXClient.me()`, `assertExpectedAccount(actual, expected)`, and `operationRuntimeSource(): string`.
+- Produces: `BrowserXClient.listBrowsers()`, `BrowserXClient.status()`, `BrowserXClient.me()`, `assertExpectedAccount(actual, expected)`, and `operationRuntimeSource(): string`.
 
 - [ ] **Step 1: Write failing account and fixture-contract tests.**
 
 ```ts
+expect(await client.listBrowsers()).toContainEqual({ key: 'install:Chrome:abc', type: 'extension', browser: 'Chrome', profile: 'itstamhn@gmail.com' })
 expect(() => assertExpectedAccount('other', 'imtamhn')).toThrowError(expect.objectContaining({ code: 'ACCOUNT_MISMATCH' }))
 expect(assertFixtureContract(authenticatedFixture, ['SideNav_AccountSwitcher_Button'])).toBe(true)
 expect(classifyPage(loggedOutFixture)).toBe('LOGIN_REQUIRED')
@@ -417,7 +421,7 @@ expect(packageJson.dependencies).toMatchObject({ playwriter: '0.4.0' })
 expect(await repositoryContains(/api\.x\.com|X_CLIENT_ID|oauth\/token/)).toBe(false)
 ```
 
-Extend install smoke to run `x --help`; run `x browser status` with an injected fake Playwriter binary so CI verifies process wiring without an X account.
+Extend install smoke to run `x --help`; run `x browser list` and `x browser status` with an injected fake Playwriter binary so CI verifies process wiring without an X account.
 
 - [ ] **Step 2: Run `pnpm test` and the new repository assertion** and verify failure while the API/OAuth backend and old help remain.
 
@@ -451,6 +455,6 @@ Expected: every command exits zero, every test passes, no test is skipped, and r
 
 - [ ] **Step 5: Run the approved live Tambot gate.** First run browser status, identity, For You, Following, search, post, user, bookmark list, and DM reads. Then obtain exact approval for each reversible write set, record before state, run post/media/delete, like/unlike, follow/unfollow, bookmark/remove, and a small bulk set, and restore before state. Do not run DM send without separate recipient-and-content approval.
 
-- [ ] **Step 6: Fresh-install the public GitHub archive on a second Mac and verify `x --help` plus `x browser status`.** Record Chrome, X locale, Playwriter, Node, commit SHA, all live results, and every skipped operation.
+- [ ] **Step 6: Fresh-install the public GitHub archive on a second Mac, verify `x --help` plus `x browser list`, explicitly bind a selected Chrome profile, then verify `x browser status`.** Record Chrome, X locale, Playwriter, Node, commit SHA, all live results, and every skipped operation.
 
 - [ ] **Step 7: Commit** with `release: switch x-cli to Playwriter` only after Steps 4 through 6 pass.

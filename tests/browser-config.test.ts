@@ -21,18 +21,19 @@ describe('browser account binding', () => {
     expect(await store.get()).toBeNull();
   });
 
-  it('persists only the expected username with private permissions', async () => {
+  it('persists only the expected username and browser key with private permissions', async () => {
     const { path, store } = await fixture();
-    await store.set('imtamhn');
-    expect(await store.get()).toBe('imtamhn');
-    expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({ expectedUsername: 'imtamhn' });
+    await store.set({ expectedUsername: 'imtamhn', browserKey: 'install:Chrome:abc' });
+    expect(await store.get()).toEqual({ expectedUsername: 'imtamhn', browserKey: 'install:Chrome:abc' });
+    expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({ expectedUsername: 'imtamhn', browserKey: 'install:Chrome:abc' });
     expect((await stat(path)).mode & 0o777).toBe(0o600);
   });
 
   it('fails loud for malformed or unsafe configuration', async () => {
     const { path, store } = await fixture();
-    await expect(store.set('@bad username')).rejects.toMatchObject({ code: 'INVALID_INPUT' });
-    await store.set('imtamhn');
+    await expect(store.set({ expectedUsername: '@bad username', browserKey: 'install:Chrome:abc' })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(store.set({ expectedUsername: 'imtamhn', browserKey: 'bad key with spaces' })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await store.set({ expectedUsername: 'imtamhn', browserKey: 'install:Chrome:abc' });
     await writeFile(path, '{not-json', { mode: 0o600 });
     await expect(store.get()).rejects.toMatchObject({ code: 'INVALID_INPUT' });
   });

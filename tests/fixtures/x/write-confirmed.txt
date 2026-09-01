@@ -1,0 +1,2 @@
+- button "Unlike" [data-testid=unlike]
+- status "Liked"

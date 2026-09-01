@@ -111,3 +111,72 @@ describe('X browser read program', () => {
     expect(scrolls).toBe(3);
   });
 });
+
+describe('X browser write program', () => {
+  it('stops before target navigation when the authenticated account is absent', async () => {
+    const logs: string[] = [];
+    const gotos: string[] = [];
+    const page = {
+      goto: async (url: string) => { gotos.push(url); },
+      url: () => 'https://x.com/',
+      locator: (selector: string) => {
+        if (selector.includes('Profile')) return { getAttribute: async () => null };
+        if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => null }) }) };
+        throw new Error('write target must not be inspected');
+      },
+      removeAllListeners: () => undefined,
+      close: async () => undefined
+    };
+    const action = { version: 1 as const, id: 'act_1', accountId: 'imtamhn', createdAt: 1, expiresAt: 2, hash: 'h', kind: 'like' as const, target: { postId: '10' } };
+    const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
+    const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({ kind: 'write', action }));
+
+    await execute(
+      { newPage: async () => page }, async () => undefined, async () => [], async () => 'Log in', {},
+      { log: (value: unknown) => { logs.push(String(value)); } }
+    );
+
+    const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
+    expect(result).toMatchObject({ outcome: 'unknown', account: { profileHref: null } });
+    expect(gotos).toEqual(['https://x.com/home']);
+  });
+
+  it('performs one like click and confirms the visible toggle change', async () => {
+    const logs: string[] = [];
+    let liked = false;
+    let clicks = 0;
+    const article = {
+      count: async () => 1,
+      locator: (selector: string) => ({
+        count: async () => selector.includes('unlike') ? Number(liked) : Number(!liked),
+        click: async () => { clicks += 1; liked = true; }
+      })
+    };
+    const page = {
+      goto: async () => undefined,
+      url: () => 'https://x.com/imtamhn/status/10',
+      locator: (selector: string) => {
+        if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
+        if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
+        if (selector === '[data-testid="tweet"]') return { filter: () => ({ first: () => article }) };
+        if (selector.includes('/status/10')) return {};
+        throw new Error(`unexpected selector: ${selector}`);
+      },
+      waitForTimeout: async () => undefined,
+      removeAllListeners: () => undefined,
+      close: async () => undefined
+    };
+    const action = { version: 1 as const, id: 'act_1', accountId: 'imtamhn', createdAt: 1, expiresAt: 2, hash: 'h', kind: 'like' as const, target: { postId: '10' } };
+    const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
+    const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({ kind: 'write', action }));
+
+    await execute(
+      { newPage: async () => page }, async () => undefined, async () => [], async () => 'authenticated', {},
+      { log: (value: unknown) => { logs.push(String(value)); } }
+    );
+
+    const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
+    expect(result).toMatchObject({ outcome: 'confirmed' });
+    expect(clicks).toBe(1);
+  });
+});

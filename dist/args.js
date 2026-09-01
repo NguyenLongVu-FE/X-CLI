@@ -8,6 +8,15 @@ export function parseArgs(argv) {
     if (command === 'auth login' || command === 'auth status' || command === 'auth logout' || command === 'me') {
         result = { kind: command.replace(' ', '-'), pretty };
     }
+    else if (command === 'browser list' || command === 'browser status') {
+        result = { kind: command.replace(' ', '-'), pretty };
+    }
+    else if (positional[0] === 'browser' && positional[1] === 'bind' && positional.length === 3) {
+        result = { kind: 'browser-bind', username: normalizeUsername(positional[2]), browserKey: takeBrowserKey(options), pretty };
+    }
+    else if (positional[0] === 'feed' && ['for-you', 'following'].includes(positional[1] ?? '') && positional.length === 2) {
+        result = { kind: `feed-${positional[1]}`, limit: takeLimit(options), pretty };
+    }
     else if (positional[0] === 'timeline' && ['home', 'following'].includes(positional[1] ?? '') && positional.length === 2) {
         result = { kind: `timeline-${positional[1]}`, limit: takeLimit(options), pretty };
     }
@@ -38,6 +47,27 @@ export function parseArgs(argv) {
     else if (['follow', 'unfollow'].includes(positional[0] ?? '') && positional.length === 2) {
         result = { kind: positional[0], username: normalizeUsername(positional[1]), pretty };
     }
+    else if (command === 'bookmark list') {
+        result = { kind: 'bookmark-list', limit: takeLimit(options), pretty };
+    }
+    else if (positional[0] === 'bookmark' && ['add', 'remove'].includes(positional[1] ?? '') && positional.length === 3) {
+        result = { kind: `bookmark-${positional[1]}`, postId: parsePostRef(positional[2]), pretty };
+    }
+    else if (command === 'dm list') {
+        result = { kind: 'dm-list', limit: takeLimit(options), pretty };
+    }
+    else if (positional[0] === 'dm' && positional[1] === 'read' && positional.length === 3) {
+        result = { kind: 'dm-read', username: normalizeUsername(positional[2]), limit: takeLimit(options), pretty };
+    }
+    else if (positional[0] === 'dm' && positional[1] === 'send' && positional.length === 3) {
+        result = { kind: 'dm-send', username: normalizeUsername(positional[2]), text: takeText(options), pretty };
+    }
+    else if (command === 'bulk plan') {
+        result = { kind: 'bulk-plan', inputPath: takeInputPath(options), pretty };
+    }
+    else if (positional[0] === 'bulk' && positional[1] === 'execute' && positional.length === 3) {
+        result = { kind: 'bulk-execute', actionId: positional[2], pretty };
+    }
     else if (positional[0] === 'action' && positional[1] === 'execute' && positional.length === 3) {
         result = { kind: 'action-execute', actionId: positional[2], pretty };
     }
@@ -59,7 +89,7 @@ function split(argv) {
             continue;
         }
         const name = value.slice(2);
-        if (name === 'pretty' || !['limit', 'text'].includes(name)) {
+        if (name === 'pretty' || !['limit', 'text', 'input', 'browser'].includes(name)) {
             options.set(name, true);
             continue;
         }
@@ -93,5 +123,20 @@ function takeText(options) {
         throw new XCliError('INVALID_INPUT', 'Post text is required');
     if (Array.from(value).length > 280)
         throw new XCliError('INVALID_INPUT', 'Post text must be at most 280 characters');
+    return value;
+}
+function takeInputPath(options) {
+    const value = options.get('input');
+    options.delete('input');
+    if (typeof value !== 'string' || value.trim() === '')
+        throw new XCliError('INVALID_INPUT', 'Bulk input file is required');
+    return value;
+}
+function takeBrowserKey(options) {
+    const value = options.get('browser');
+    options.delete('browser');
+    if (typeof value !== 'string' || !/^[^\s\u0000-\u001f\u007f]{1,200}$/.test(value)) {
+        throw new XCliError('INVALID_INPUT', 'Browser key is required');
+    }
     return value;
 }

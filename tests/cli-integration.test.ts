@@ -6,6 +6,11 @@ import { parseArgs } from '../src/args.js';
 function dependencies(): AppDependencies {
   return {
     oauth: { login: async () => ({ authenticated: true }), status: async () => ({ authenticated: true }), logout: async () => {} },
+    browser: {
+      list: async () => [{ key: 'install:Chrome:sabrina', profile: 'itstamhn@gmail.com' }],
+      bind: async (username, browserKey) => ({ expectedUsername: username, browserKey }),
+      status: async () => ({ connected: true, authenticated: true, username: 'imtamhn' })
+    },
     client: {
       me: async () => ({ id: '1', name: 'Tam', username: 'imtamhn' }),
       forYouFeed: async () => [{ id: '10', text: 'home' }], followingFeed: async () => [{ id: '11', text: 'following' }],
@@ -46,6 +51,13 @@ describe('complete CLI wiring', () => {
     expect(await runCommand(parseArgs(['action', 'execute', 'act_123']), deps)).toContain('"outcome":"confirmed"');
     expect(await runCommand(parseArgs(['auth', 'status']), deps)).toContain('"authenticated":true');
     expect(await runCommand(parseArgs(['auth', 'logout']), deps)).toBe('{"authenticated":false}\n');
+  });
+
+  it('lists, binds, and verifies an explicit Playwriter browser', async () => {
+    const deps = dependencies();
+    expect(await runCommand(parseArgs(['browser', 'list']), deps)).toContain('"key":"install:Chrome:sabrina"');
+    expect(await runCommand(parseArgs(['browser', 'bind', '@imtamhn', '--browser', 'install:Chrome:sabrina']), deps)).toContain('"expectedUsername":"imtamhn"');
+    expect(await runCommand(parseArgs(['browser', 'status']), deps)).toContain('"authenticated":true');
   });
 
   it('pretty-prints only when requested', async () => {

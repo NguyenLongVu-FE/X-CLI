@@ -1,6 +1,5 @@
-import type { WriteResult } from '../api/writes.js';
 import { ActionStore } from './store.js';
-import type { ActionPreview } from './types.js';
+import type { ActionPreview, WriteResult } from './types.js';
 
 interface Writer { execute(action: ActionPreview): Promise<WriteResult> }
 

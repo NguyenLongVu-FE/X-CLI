@@ -1,0 +1,99 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { XCliError } from '../errors.js';
+import { BrowserLock } from './lock.js';
+import { systemExecFile } from './process.js';
+import { buildXProgram } from './x-program.js';
+const RESULT_PREFIX = '__XCLI_RESULT__';
+export class PlaywriterRunner {
+    execFile;
+    timeoutMs;
+    binary;
+    buildProgram;
+    withLock;
+    constructor(options = {}) {
+        this.execFile = options.execFile ?? systemExecFile;
+        this.timeoutMs = options.timeoutMs ?? 30_000;
+        this.binary = options.binary ?? 'playwriter';
+        this.buildProgram = options.buildProgram ?? buildXProgram;
+        const lock = new BrowserLock(join(homedir(), 'Library', 'Application Support', 'x-cli', 'browser.lock'));
+        this.withLock = options.withLock ?? ((work) => lock.withLock(work));
+    }
+    async listBrowsers() {
+        const result = await this.call(['browser', 'list']);
+        const browsers = parseBrowserList(result.stdout);
+        if (browsers.length === 0)
+            throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter did not report an available browser', 2);
+        return browsers;
+    }
+    run(operation, browserKey) {
+        return this.withLock(async () => this.runInSession(operation, browserKey));
+    }
+    async runInSession(operation, browserKey) {
+        let sessionId;
+        try {
+            const created = await this.call(['session', 'new', '--browser', browserKey]);
+            sessionId = parseSessionId(created.stdout);
+            const result = await this.call(['-s', sessionId, '--timeout', String(this.timeoutMs), '-e', this.buildProgram(operation)]);
+            return parseMarkedJson(result.stdout);
+        }
+        finally {
+            if (sessionId !== undefined)
+                await this.call(['session', 'delete', sessionId]).catch(() => undefined);
+        }
+    }
+    async call(args) {
+        try {
+            return await this.execFile(this.binary, args, { timeout: this.timeoutMs, shell: false });
+        }
+        catch (error) {
+            if (hasCode(error, 'ENOENT'))
+                throw new XCliError('PLAYWRITER_UNAVAILABLE', 'Playwriter executable is not available', 2);
+            const diagnostic = processDiagnostic(error);
+            if (/extension is not connected|no browser tabs have Playwriter enabled|browser connection/i.test(diagnostic)) {
+                throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter is not connected to a Chrome tab', 2);
+            }
+            throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter browser command failed', 2);
+        }
+    }
+}
+function parseBrowserList(stdout) {
+    return stdout.split(/\r?\n/).flatMap((line) => {
+        const columns = line.trim().split(/\s{2,}/);
+        if (columns.length !== 4 || columns[0] === 'KEY')
+            return [];
+        return [{ key: columns[0], type: columns[1], browser: columns[2], profile: columns[3] }];
+    });
+}
+function parseSessionId(stdout) {
+    const trimmed = stdout.trim();
+    if (/^[A-Za-z0-9_-]+$/.test(trimmed))
+        return trimmed;
+    const matches = [...stdout.matchAll(/^Session ([A-Za-z0-9_-]+) created\./gm)];
+    if (matches.length === 1)
+        return matches[0][1];
+    throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter returned an invalid session identifier', 2);
+}
+export function parseMarkedJson(stdout) {
+    const marked = stdout.split(/\r?\n/).flatMap((line) => {
+        const match = line.match(new RegExp(`^(?:\\[log\\]\\s+)?${RESULT_PREFIX}(.*)$`));
+        return match === null ? [] : [match[1]];
+    });
+    if (marked.length !== 1)
+        throw new XCliError('X_UI_CHANGED', 'Playwriter did not return exactly one X-CLI result', 2);
+    try {
+        return JSON.parse(marked[0]);
+    }
+    catch {
+        throw new XCliError('X_UI_CHANGED', 'Playwriter returned an invalid X-CLI result', 2);
+    }
+}
+function processDiagnostic(error) {
+    if (typeof error !== 'object' || error === null)
+        return '';
+    const value = error;
+    return `${typeof value.message === 'string' ? value.message : ''}\n${typeof value.stderr === 'string' ? value.stderr : ''}`;
+}
+function hasCode(error, code) {
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
+}

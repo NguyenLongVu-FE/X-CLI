@@ -1,10 +1,18 @@
 import type { ParsedCommand } from './args.js';
-import type { ActionInput, ActionPreview } from './actions/types.js';
-import { type WriteResult } from './api/writes.js';
+import type { ActionInput, ActionPreview, WriteResult } from './actions/types.js';
+import type { BrowserDescriptor, BrowserStatus } from './browser/types.js';
 interface OAuthCommands {
     login(): Promise<unknown>;
     status(): Promise<unknown>;
     logout(): Promise<void>;
+}
+interface BrowserCommands {
+    list(): Promise<BrowserDescriptor[]>;
+    bind(username: string, browserKey: string): Promise<{
+        expectedUsername: string;
+        browserKey: string;
+    }>;
+    status(): Promise<BrowserStatus>;
 }
 interface ReadCommands {
     me(): Promise<{
@@ -12,6 +20,8 @@ interface ReadCommands {
         name: string;
         username: string;
     }>;
+    forYouFeed(limit: number): Promise<unknown[]>;
+    followingFeed(limit: number): Promise<unknown[]>;
     homeTimeline(limit: number): Promise<unknown[]>;
     followingTimeline(limit: number): Promise<unknown[]>;
     searchPosts(query: string, limit: number): Promise<unknown[]>;
@@ -38,6 +48,7 @@ interface Executor {
 }
 export interface AppDependencies {
     oauth: OAuthCommands;
+    browser: BrowserCommands;
     client: ReadCommands;
     planner: Planner;
     executor: Executor;

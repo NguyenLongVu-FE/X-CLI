@@ -3,11 +3,13 @@ import { join } from 'node:path';
 import { ActionExecutor } from './actions/executor.js';
 import { ActionPlanner } from './actions/planner.js';
 import { ActionStore } from './actions/store.js';
-import { XClient } from './api/reads.js';
-import { XTransport } from './api/transport.js';
-import { XWrites } from './api/writes.js';
 import { MacOsKeychainStore } from './auth/keychain.js';
 import { createOAuthClient } from './auth/oauth.js';
+import { BrowserXClient } from './browser/client.js';
+import { BrowserBindingStore } from './browser/config.js';
+import { PlaywriterRunner } from './browser/runner.js';
+import { BrowserXWriter } from './browser/writer.js';
+import { XCliError } from './errors.js';
 export async function runCommand(command, dependencies) {
     let value;
     let collection = false;
@@ -22,8 +24,26 @@ export async function runCommand(command, dependencies) {
             await dependencies.oauth.logout();
             value = { authenticated: false };
             break;
+        case 'browser-list':
+            value = await dependencies.browser.list();
+            collection = true;
+            break;
+        case 'browser-bind':
+            value = await dependencies.browser.bind(command.username, command.browserKey);
+            break;
+        case 'browser-status':
+            value = await dependencies.browser.status();
+            break;
         case 'me':
             value = await dependencies.client.me();
+            break;
+        case 'feed-for-you':
+            value = await dependencies.client.forYouFeed(command.limit);
+            collection = true;
+            break;
+        case 'feed-following':
+            value = await dependencies.client.followingFeed(command.limit);
+            collection = true;
             break;
         case 'timeline-home':
             value = await dependencies.client.homeTimeline(command.limit);
@@ -84,13 +104,29 @@ async function plan(dependencies, input) {
 export function createProductionApp(clientId) {
     const credentials = new MacOsKeychainStore();
     const oauth = createOAuthClient(clientId, credentials);
-    const transport = new XTransport({ store: credentials, refresh: () => oauth.refresh(), fetch: globalThis.fetch });
-    const client = new XClient(transport);
-    const store = new ActionStore(join(homedir(), 'Library', 'Application Support', 'x-cli', 'actions'));
+    const supportRoot = join(homedir(), 'Library', 'Application Support', 'x-cli');
+    const bindings = new BrowserBindingStore(join(supportRoot, 'browser.json'));
+    const runner = new PlaywriterRunner();
+    const client = new BrowserXClient(runner, bindings);
+    const writer = new BrowserXWriter(runner, bindings);
+    const store = new ActionStore(join(supportRoot, 'actions'));
     return {
         oauth,
+        browser: {
+            list: () => client.listBrowsers(),
+            bind: async (expectedUsername, browserKey) => {
+                const available = await client.listBrowsers();
+                if (!available.some((browser) => browser.key === browserKey)) {
+                    throw new XCliError('BROWSER_DISCONNECTED', 'The selected Playwriter browser key is not available', 2);
+                }
+                const binding = { expectedUsername, browserKey };
+                await bindings.set(binding);
+                return binding;
+            },
+            status: () => client.status()
+        },
         client,
         planner: new ActionPlanner(store),
-        executor: new ActionExecutor(store, async () => (await client.me()).id, new XWrites(transport))
+        executor: new ActionExecutor(store, async () => (await client.me()).id, writer)
     };
 }

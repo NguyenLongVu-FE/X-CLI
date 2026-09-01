@@ -15,3 +15,8 @@ export interface ActionPreview extends ActionInput {
   expiresAt: number;
   hash: string;
 }
+
+export interface WriteResult {
+  outcome: 'confirmed' | 'unknown';
+  resourceId?: string;
+}

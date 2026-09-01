@@ -29,6 +29,10 @@ export type BrowserReadEnvelope<T> =
   | { account: BrowserAccountObservation; state: 'ok'; value: T }
   | { account: BrowserAccountObservation; state: 'not-found' };
 
+export type BrowserWriteEnvelope =
+  | { account: BrowserAccountObservation; outcome: 'confirmed' | 'unknown'; resourceId?: string }
+  | { account: BrowserAccountObservation; blocked: 'warning' | 'challenge' };
+
 export interface BrowserPost {
   id: string;
   url: string;

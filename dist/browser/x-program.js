@@ -1,7 +1,5 @@
-import type { BrowserOperation } from './types.js';
-
-export function buildXProgram(operation: BrowserOperation): string {
-  return `${operationRuntimeSource()}
+export function buildXProgram(operation) {
+    return `${operationRuntimeSource()}
 const input = ${JSON.stringify(operation)};
 state.page = await context.newPage();
 try {
@@ -16,9 +14,8 @@ try {
   await state.page.close();
 }`;
 }
-
-export function operationRuntimeSource(): string {
-  return `async function openXPage(page, url) {
+export function operationRuntimeSource() {
+    return `async function openXPage(page, url) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 });
   await waitForPageLoad({ page, timeout: 10000 });
 }

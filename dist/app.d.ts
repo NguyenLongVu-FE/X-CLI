@@ -1,5 +1,5 @@
 import type { ParsedCommand } from './args.js';
-import type { ActionInput, ActionPreview, WriteResult } from './actions/types.js';
+import type { ActionInput, ActionPreview, BulkExecutionResult, BulkPreview, WriteResult } from './actions/types.js';
 import type { BrowserDescriptor, BrowserStatus } from './browser/types.js';
 interface OAuthCommands {
     login(): Promise<unknown>;
@@ -49,12 +49,20 @@ interface Executor {
         kind: ActionPreview['kind'];
     }>;
 }
+interface BulkPlanCommands {
+    plan(path: string, accountId: string): Promise<BulkPreview>;
+}
+interface BulkExecuteCommands {
+    execute(id: string): Promise<BulkExecutionResult>;
+}
 export interface AppDependencies {
     oauth: OAuthCommands;
     browser: BrowserCommands;
     client: ReadCommands;
     planner: Planner;
     executor: Executor;
+    bulkPlanner: BulkPlanCommands;
+    bulkExecutor: BulkExecuteCommands;
 }
 export declare function runCommand(command: ParsedCommand, dependencies: AppDependencies): Promise<string>;
 export declare function createProductionApp(clientId: string): AppDependencies;

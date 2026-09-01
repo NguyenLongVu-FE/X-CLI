@@ -9,6 +9,8 @@ import { BrowserXClient } from './browser/client.js';
 import { BrowserBindingStore } from './browser/config.js';
 import { PlaywriterRunner } from './browser/runner.js';
 import { BrowserXWriter } from './browser/writer.js';
+import { BulkExecutor } from './bulk/executor.js';
+import { BulkPlanner } from './bulk/planner.js';
 import { XCliError } from './errors.js';
 import { describeMedia } from './media.js';
 export async function runCommand(command, dependencies) {
@@ -114,6 +116,12 @@ export async function runCommand(command, dependencies) {
         case 'action-execute':
             value = await dependencies.executor.execute(command.actionId);
             break;
+        case 'bulk-plan':
+            value = await dependencies.bulkPlanner.plan(command.inputPath, (await dependencies.client.me()).id);
+            break;
+        case 'bulk-execute':
+            value = await dependencies.bulkExecutor.execute(command.actionId);
+            break;
     }
     if (command.pretty)
         return `${JSON.stringify(value, null, 2)}\n`;
@@ -152,6 +160,8 @@ export function createProductionApp(clientId) {
         },
         client,
         planner: new ActionPlanner(store),
-        executor: new ActionExecutor(store, async () => (await client.me()).id, writer)
+        executor: new ActionExecutor(store, async () => (await client.me()).id, writer),
+        bulkPlanner: new BulkPlanner(store),
+        bulkExecutor: new BulkExecutor(store, async () => (await client.me()).id, writer)
     };
 }

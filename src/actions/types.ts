@@ -23,3 +23,29 @@ export interface WriteResult {
   outcome: 'confirmed' | 'unknown';
   resourceId?: string;
 }
+
+export interface BulkPreview {
+  version: 1;
+  id: string;
+  accountId: string;
+  kind: 'bulk';
+  actions: ActionInput[];
+  sourceHash: string;
+  createdAt: number;
+  expiresAt: number;
+  hash: string;
+}
+
+export interface BulkItemResult {
+  index: number;
+  kind: ActionKind;
+  outcome: WriteResult['outcome'];
+  error?: string;
+}
+
+export interface BulkExecutionResult {
+  actionId: string;
+  stopped: boolean;
+  stopCode?: string;
+  results: BulkItemResult[];
+}

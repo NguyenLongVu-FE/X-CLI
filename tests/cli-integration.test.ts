@@ -23,7 +23,9 @@ function dependencies(): AppDependencies {
       readDmConversation: async (username) => [{ conversationUsername: username, senderUsername: username, text: 'private' }]
     },
     planner: { plan: async (input, accountId) => ({ ...input, version: 1 as const, id: 'act_1', accountId, createdAt: 1, expiresAt: 2, hash: 'h' }) },
-    executor: { execute: async (id) => ({ actionId: id, kind: 'like' as const, outcome: 'confirmed' as const }) }
+    executor: { execute: async (id) => ({ actionId: id, kind: 'like' as const, outcome: 'confirmed' as const }) },
+    bulkPlanner: { plan: async (path, accountId) => ({ version: 1 as const, id: 'act_bulk', accountId, kind: 'bulk' as const, sourceHash: path, actions: [], createdAt: 1, expiresAt: 2, hash: 'h' }) },
+    bulkExecutor: { execute: async (id) => ({ actionId: id, stopped: false, results: [] }) }
   };
 }
 
@@ -64,6 +66,12 @@ describe('complete CLI wiring', () => {
     expect(await runCommand(parseArgs(['action', 'execute', 'act_123']), deps)).toContain('"outcome":"confirmed"');
     expect(await runCommand(parseArgs(['auth', 'status']), deps)).toContain('"authenticated":true');
     expect(await runCommand(parseArgs(['auth', 'logout']), deps)).toBe('{"authenticated":false}\n');
+  });
+
+  it('previews and executes bulk only through explicit commands', async () => {
+    const deps = dependencies();
+    expect(await runCommand(parseArgs(['bulk', 'plan', '--input', './actions.json']), deps)).toContain('"kind":"bulk"');
+    expect(await runCommand(parseArgs(['bulk', 'execute', 'act_123']), deps)).toContain('"stopped":false');
   });
 
   it('lists, binds, and verifies an explicit Playwriter browser', async () => {

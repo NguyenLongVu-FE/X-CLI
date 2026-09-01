@@ -5,7 +5,7 @@ import type { ParsedCommand } from './args.js';
 import { ActionExecutor } from './actions/executor.js';
 import { ActionPlanner } from './actions/planner.js';
 import { ActionStore } from './actions/store.js';
-import type { ActionInput, ActionPreview, WriteResult } from './actions/types.js';
+import type { ActionInput, ActionPreview, BulkExecutionResult, BulkPreview, WriteResult } from './actions/types.js';
 import { MacOsKeychainStore } from './auth/keychain.js';
 import { createOAuthClient } from './auth/oauth.js';
 import { BrowserXClient } from './browser/client.js';
@@ -13,6 +13,8 @@ import { BrowserBindingStore } from './browser/config.js';
 import { PlaywriterRunner } from './browser/runner.js';
 import type { BrowserDescriptor, BrowserStatus } from './browser/types.js';
 import { BrowserXWriter } from './browser/writer.js';
+import { BulkExecutor } from './bulk/executor.js';
+import { BulkPlanner } from './bulk/planner.js';
 import { XCliError } from './errors.js';
 import { describeMedia } from './media.js';
 
@@ -42,8 +44,18 @@ interface ReadCommands {
 }
 interface Planner { plan(input: ActionInput, accountId: string): Promise<ActionPreview> }
 interface Executor { execute(id: string): Promise<WriteResult & { actionId: string; kind: ActionPreview['kind'] }> }
+interface BulkPlanCommands { plan(path: string, accountId: string): Promise<BulkPreview> }
+interface BulkExecuteCommands { execute(id: string): Promise<BulkExecutionResult> }
 
-export interface AppDependencies { oauth: OAuthCommands; browser: BrowserCommands; client: ReadCommands; planner: Planner; executor: Executor }
+export interface AppDependencies {
+  oauth: OAuthCommands;
+  browser: BrowserCommands;
+  client: ReadCommands;
+  planner: Planner;
+  executor: Executor;
+  bulkPlanner: BulkPlanCommands;
+  bulkExecutor: BulkExecuteCommands;
+}
 
 export async function runCommand(command: ParsedCommand, dependencies: AppDependencies): Promise<string> {
   let value: unknown;
@@ -84,6 +96,8 @@ export async function runCommand(command: ParsedCommand, dependencies: AppDepend
       break;
     }
     case 'action-execute': value = await dependencies.executor.execute(command.actionId); break;
+    case 'bulk-plan': value = await dependencies.bulkPlanner.plan(command.inputPath, (await dependencies.client.me()).id); break;
+    case 'bulk-execute': value = await dependencies.bulkExecutor.execute(command.actionId); break;
   }
   if (command.pretty) return `${JSON.stringify(value, null, 2)}\n`;
   if (collection) return (value as unknown[]).map((entry) => JSON.stringify(entry)).join('\n') + ((value as unknown[]).length ? '\n' : '');
@@ -122,6 +136,8 @@ export function createProductionApp(clientId: string): AppDependencies {
     },
     client,
     planner: new ActionPlanner(store),
-    executor: new ActionExecutor(store, async () => (await client.me()).id, writer)
+    executor: new ActionExecutor(store, async () => (await client.me()).id, writer),
+    bulkPlanner: new BulkPlanner(store),
+    bulkExecutor: new BulkExecutor(store, async () => (await client.me()).id, writer)
   };
 }

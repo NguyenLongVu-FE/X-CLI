@@ -3,6 +3,7 @@
   "version": "0.2.0",
   "description": "Safe browser-backed command-line control of an authenticated X account",
   "license": "MIT",
+  "packageManager": "pnpm@11.22.0",
   "type": "module",
   "exports": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,7 +17,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22 <25"
   },
   "scripts": {
     "build": "rimraf dist && tsc && chmod +x dist/cli.js",
@@ -26,8 +27,9 @@
     "test:git-install": "tsx scripts/git-install-smoke.ts",
     "test:browser-process": "tsx scripts/browser-process-smoke.ts",
     "test:live:browser": "tsx scripts/live-browser-contract.ts",
-    "test:package": "pnpm build && tsx scripts/package-smoke.ts",
-    "test:skill-install": "pnpm build && tsx scripts/skill-install-smoke.ts"
+    "test:skill-install": "pnpm build && tsx scripts/skill-install-smoke.ts",
+    "test:audit": "pnpm audit --prod",
+    "install:mac": "pnpm test:audit && pnpm build && tsx scripts/install-macos.ts"
   },
   "dependencies": {
     "playwriter": "0.4.0",

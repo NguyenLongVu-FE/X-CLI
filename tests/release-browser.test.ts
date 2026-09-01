@@ -13,9 +13,12 @@ describe('browser-only release contract', () => {
   });
 
   it('ships Playwriter without API or Keychain dependencies', async () => {
-    const packageJson = JSON.parse(await readFile('package.json', 'utf8')) as { description: string; dependencies: Record<string, string> };
+    const packageJson = JSON.parse(await readFile('package.json', 'utf8')) as { description: string; packageManager: string; engines: { node: string }; dependencies: Record<string, string> };
     expect(packageJson.dependencies.playwriter).toBe('0.4.0');
     expect(packageJson.dependencies).not.toHaveProperty('@napi-rs/keyring');
+    expect(packageJson.dependencies).not.toHaveProperty('@nguyenlongvu-fe/x-cli');
+    expect(packageJson.packageManager).toBe('pnpm@11.22.0');
+    expect(packageJson.engines.node).toBe('>=22 <25');
     expect(packageJson.description.toLowerCase()).toContain('browser');
   });
 

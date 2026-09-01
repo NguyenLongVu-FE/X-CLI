@@ -7,12 +7,12 @@ import type { ExecFileLike } from '../src/browser/process.js';
 function lifecycle(output = '__XCLI_RESULT__{"username":"imtamhn"}\n'): {
   execFile: ExecFileLike;
   activeSessions: Set<string>;
-  calls: { file: string; args: readonly string[]; shell?: boolean }[];
+  calls: { file: string; args: readonly string[]; shell?: boolean; timeout?: number }[];
 } {
   const activeSessions = new Set<string>();
-  const calls: { file: string; args: readonly string[]; shell?: boolean }[] = [];
+  const calls: { file: string; args: readonly string[]; shell?: boolean; timeout?: number }[] = [];
   const execFile: ExecFileLike = async (file, args, options) => {
-    calls.push({ file, args, shell: options.shell });
+    calls.push({ file, args, shell: options.shell, timeout: options.timeout });
     if (args[0] === 'session' && args[1] === 'new') {
       activeSessions.add('17');
       return { stdout: '17\n', stderr: '' };
@@ -53,6 +53,7 @@ describe('Playwriter runner', () => {
     expect(fake.calls.map(({ args }) => args.slice(0, 2))).toEqual([['session', 'new'], ['-s', '17'], ['session', 'delete']]);
     expect(fake.calls[0]!.args).toEqual(['session', 'new', '--browser', 'install:Chrome:abc']);
     expect(fake.calls.every(({ shell }) => shell === false)).toBe(true);
+    expect(fake.calls.every(({ timeout }) => timeout === 90_000)).toBe(true);
   });
 
   it('accepts the verbose session output emitted by Playwriter 0.4.0', async () => {
@@ -122,7 +123,7 @@ async function lifecycleStep(
   args: readonly string[],
   options: { timeout: number; shell: false }
 ): Promise<{ stdout: string; stderr: string }> {
-  fake.calls.push({ file, args, shell: options.shell });
+  fake.calls.push({ file, args, shell: options.shell, timeout: options.timeout });
   if (args[0] === 'session' && args[1] === 'new') { fake.activeSessions.add('17'); return { stdout: '17\n', stderr: '' }; }
   if (args[0] === 'session' && args[1] === 'delete') { fake.activeSessions.delete(args[2]!); return { stdout: '', stderr: '' }; }
   return { stdout: '', stderr: '' };

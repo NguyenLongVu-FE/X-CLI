@@ -18,7 +18,10 @@ describe('X browser status contract', () => {
       goto: async (url: string) => { events.push(`goto:${url}`); },
       url: () => 'https://x.com/home',
       locator: (selector: string) => selector.includes('Profile')
-        ? { getAttribute: async (_name: string, options: unknown) => { attributeOptions.push(options); return '/imtamhn'; } }
+        ? { getAttribute: async (_name: string, options: { timeout: number }) => {
+            attributeOptions.push(options);
+            return options.timeout >= 10_000 ? '/imtamhn' : null;
+          } }
         : { locator: () => ({ first: () => ({ getAttribute: async (_name: string, options: unknown) => { attributeOptions.push(options); return 'Tam'; } }) }) },
       removeAllListeners: () => { events.push('listeners-removed'); },
       close: async () => { events.push('closed'); }
@@ -36,7 +39,7 @@ describe('X browser status contract', () => {
       '__XCLI_RESULT__{"url":"https://x.com/home","profileHref":"/imtamhn","displayName":"Tam","snapshot":"authenticated"}'
     ]);
     expect(snapshotOptions).toEqual([]);
-    expect(attributeOptions).toEqual([{ timeout: 2_000 }, { timeout: 2_000 }]);
+    expect(attributeOptions).toEqual([{ timeout: 10_000 }, { timeout: 2_000 }]);
     expect(events).toEqual(['goto:https://x.com/home', 'listeners-removed', 'closed']);
   });
 
@@ -81,6 +84,7 @@ describe('X browser read program', () => {
     const logs: string[] = [];
     const selectedTabs: string[] = [];
     let scrolls = 0;
+    let feedReady = false;
     const rawPost = { url: '/alice/status/101', text: 'hello', authorUsername: 'alice' };
     const page = {
       goto: async () => undefined,
@@ -92,7 +96,10 @@ describe('X browser read program', () => {
       locator: (selector: string) => {
         if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
         if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
-        if (selector.includes('tweet')) return { evaluateAll: async () => [rawPost] };
+        if (selector.includes('tweet')) return {
+          first: () => ({ waitFor: async () => { feedReady = true; } }),
+          evaluateAll: async () => feedReady ? [rawPost] : []
+        };
         throw new Error(`unexpected selector: ${selector}`);
       },
       evaluate: async () => { scrolls += 1; },
@@ -114,6 +121,39 @@ describe('X browser read program', () => {
     expect(result.account.profileHref).toBe('/imtamhn');
     expect(selectedTabs).toContain('For you');
     expect(scrolls).toBe(3);
+  });
+
+  it('returns an empty collection when X finishes loading without a visible post', async () => {
+    const logs: string[] = [];
+    const page = {
+      goto: async () => undefined,
+      url: () => 'https://x.com/home',
+      getByRole: () => ({ getAttribute: async () => 'true', click: async () => undefined }),
+      locator: (selector: string) => {
+        if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
+        if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
+        if (selector.includes('tweet')) return {
+          first: () => ({ waitFor: async () => { throw new Error('no visible posts'); } }),
+          evaluateAll: async () => []
+        };
+        throw new Error(`unexpected selector: ${selector}`);
+      },
+      evaluate: async () => undefined,
+      removeAllListeners: () => undefined,
+      close: async () => undefined
+    };
+    const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
+    const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({
+      kind: 'read-feed', feed: 'for-you', limit: 2, expectedUsername: 'imtamhn'
+    }));
+
+    await execute(
+      { newPage: async () => page }, async () => undefined, async () => [], async () => 'authenticated', {},
+      { log: (value: unknown) => { logs.push(String(value)); } }
+    );
+
+    const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
+    expect(result).toMatchObject({ state: 'ok', value: [] });
   });
 });
 

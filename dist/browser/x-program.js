@@ -21,8 +21,10 @@ export function operationRuntimeSource() {
 }
 
 async function observeXAccount(page) {
-  const profileHref = await page.locator("[data-testid=AppTabBar_Profile_Link]").getAttribute("href", { timeout: 2000 }).catch(() => null);
-  const displayName = await page.locator("[data-testid=SideNav_AccountSwitcher_Button]").locator("img").first().getAttribute("alt", { timeout: 2000 }).catch(() => null);
+  const [profileHref, displayName] = await Promise.all([
+    page.locator("[data-testid=AppTabBar_Profile_Link]").getAttribute("href", { timeout: 10000 }).catch(() => null),
+    page.locator("[data-testid=SideNav_AccountSwitcher_Button]").locator("img").first().getAttribute("alt", { timeout: 2000 }).catch(() => null)
+  ]);
   const snapshotText = profileHref === null ? (await snapshot({ page })).slice(0, 4000) : "authenticated";
   return { url: page.url(), profileHref, displayName, snapshot: snapshotText };
 }
@@ -89,6 +91,7 @@ async function runXOperation(input, page, account) {
 }
 
 async function collectPosts(page, limit) {
+  await page.locator('[data-testid="tweet"]').first().waitFor({ state: "attached", timeout: 10000 }).catch(() => undefined);
   const posts = [];
   const seen = new Set();
   let noGrowth = 0;

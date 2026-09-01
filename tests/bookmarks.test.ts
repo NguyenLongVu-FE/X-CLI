@@ -86,7 +86,10 @@ function fakePage(options: { gotos: string[]; onTweets: () => unknown[]; article
       if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
       if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
       if (selector === '[data-testid="tweet"]' && options.article !== undefined) return { filter: () => ({ first: () => options.article }) };
-      if (selector === '[data-testid="tweet"]') return { evaluateAll: async () => options.onTweets() };
+      if (selector === '[data-testid="tweet"]') return {
+        first: () => ({ waitFor: async () => undefined }),
+        evaluateAll: async () => options.onTweets()
+      };
       if (selector.includes('/status/42')) return {};
       throw new Error(`unexpected selector: ${selector}`);
     },

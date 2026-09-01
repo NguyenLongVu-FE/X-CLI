@@ -28,7 +28,7 @@ export class PlaywriterRunner {
 
   constructor(options: PlaywriterRunnerOptions = {}) {
     this.execFile = options.execFile ?? systemExecFile;
-    this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.timeoutMs = options.timeoutMs ?? 90_000;
     this.binary = options.binary ?? BUNDLED_PLAYWRITER;
     this.buildProgram = options.buildProgram ?? buildXProgram;
     const lock = new BrowserLock(join(homedir(), 'Library', 'Application Support', 'x-cli', 'browser.lock'));

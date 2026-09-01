@@ -1,6 +1,9 @@
 type WithPretty = {
     pretty: boolean;
 };
+type WithMedia = {
+    media?: string[];
+};
 export type ParsedCommand = ({
     kind: 'auth-login' | 'auth-status' | 'auth-logout' | 'me';
 } & WithPretty) | ({
@@ -34,11 +37,11 @@ export type ParsedCommand = ({
 } & WithPretty) | ({
     kind: 'post-create';
     text: string;
-} & WithPretty) | ({
+} & WithMedia & WithPretty) | ({
     kind: 'reply';
     postId: string;
     text: string;
-} & WithPretty) | ({
+} & WithMedia & WithPretty) | ({
     kind: 'like' | 'unlike';
     postId: string;
 } & WithPretty) | ({
@@ -58,7 +61,7 @@ export type ParsedCommand = ({
     kind: 'dm-send';
     username: string;
     text: string;
-} & WithPretty) | ({
+} & WithMedia & WithPretty) | ({
     kind: 'bulk-plan';
     inputPath: string;
 } & WithPretty) | ({

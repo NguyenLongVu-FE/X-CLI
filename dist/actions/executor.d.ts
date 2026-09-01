@@ -1,6 +1,7 @@
 import { ActionStore } from './store.js';
 import type { ActionPreview, WriteResult } from './types.js';
 interface Writer {
+    validate?(action: ActionPreview): Promise<void>;
     execute(action: ActionPreview): Promise<WriteResult>;
 }
 export declare class ActionExecutor {

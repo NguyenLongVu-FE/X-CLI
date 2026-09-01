@@ -13,6 +13,19 @@ export class ActionStore {
         await mkdir(this.root, { recursive: true, mode: 0o700 });
         await writeFile(this.path(preview.id), `${JSON.stringify(preview)}\n`, { mode: 0o600, flag: 'wx' });
     }
+    async inspect(id, accountId) {
+        if (!/^act_[a-f0-9]{32}$/.test(id))
+            throw changed();
+        let preview;
+        try {
+            preview = JSON.parse(await readFile(this.path(id), 'utf8'));
+        }
+        catch {
+            throw changed();
+        }
+        this.validate(preview, accountId);
+        return preview;
+    }
     async consume(id, accountId) {
         if (!/^act_[a-f0-9]{32}$/.test(id))
             throw changed();
@@ -33,13 +46,16 @@ export class ActionStore {
             throw changed();
         }
         await unlink(consuming).catch(() => { });
+        this.validate(preview, accountId);
+        return preview;
+    }
+    path(id) { return join(this.root, `${id}.json`); }
+    validate(preview, accountId) {
         if (preview.accountId !== accountId || preview.hash !== hashPreview(preview))
             throw changed();
         if (preview.expiresAt < this.now())
             throw new XCliError('ACTION_EXPIRED', 'Action approval has expired', 2);
-        return preview;
     }
-    path(id) { return join(this.root, `${id}.json`); }
 }
 export function hashPreview(preview) {
     const { hash: _hash, ...unsigned } = preview;

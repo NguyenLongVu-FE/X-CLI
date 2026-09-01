@@ -14,6 +14,7 @@ import { PlaywriterRunner } from './browser/runner.js';
 import type { BrowserDescriptor, BrowserStatus } from './browser/types.js';
 import { BrowserXWriter } from './browser/writer.js';
 import { XCliError } from './errors.js';
+import { describeMedia } from './media.js';
 
 interface OAuthCommands {
   login(): Promise<unknown>;
@@ -61,8 +62,8 @@ export async function runCommand(command: ParsedCommand, dependencies: AppDepend
     case 'post-delete': value = await plan(dependencies, { kind: 'post-delete', target: { postId: command.postId } }); break;
     case 'user-get': value = await dependencies.client.getUser(command.username); break;
     case 'following-check': value = await dependencies.client.isFollowing(command.username); break;
-    case 'post-create': value = await plan(dependencies, { kind: 'post-create', target: {}, text: command.text }); break;
-    case 'reply': value = await plan(dependencies, { kind: 'reply', target: { postId: command.postId }, text: command.text }); break;
+    case 'post-create': value = await plan(dependencies, { kind: 'post-create', target: {}, text: command.text }, command.media); break;
+    case 'reply': value = await plan(dependencies, { kind: 'reply', target: { postId: command.postId }, text: command.text }, command.media); break;
     case 'like': value = await plan(dependencies, { kind: 'like', target: { postId: command.postId } }); break;
     case 'unlike': value = await plan(dependencies, { kind: 'unlike', target: { postId: command.postId } }); break;
     case 'follow':
@@ -78,9 +79,10 @@ export async function runCommand(command: ParsedCommand, dependencies: AppDepend
   return `${JSON.stringify(value)}\n`;
 }
 
-async function plan(dependencies: AppDependencies, input: ActionInput): Promise<ActionPreview> {
+async function plan(dependencies: AppDependencies, input: ActionInput, mediaPaths?: readonly string[]): Promise<ActionPreview> {
+  const media = mediaPaths === undefined ? undefined : await describeMedia(mediaPaths);
   const account = await dependencies.client.me();
-  return dependencies.planner.plan(input, account.id);
+  return dependencies.planner.plan({ ...input, ...(media === undefined ? {} : { media }) }, account.id);
 }
 
 export function createProductionApp(clientId: string): AppDependencies {

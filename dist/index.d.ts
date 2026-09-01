@@ -16,4 +16,5 @@ export * from './actions/store.js';
 export * from './actions/types.js';
 export * from './errors.js';
 export * from './identifiers.js';
+export * from './media.js';
 export * from './output.js';

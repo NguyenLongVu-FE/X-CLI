@@ -10,6 +10,7 @@ import { BrowserBindingStore } from './browser/config.js';
 import { PlaywriterRunner } from './browser/runner.js';
 import { BrowserXWriter } from './browser/writer.js';
 import { XCliError } from './errors.js';
+import { describeMedia } from './media.js';
 export async function runCommand(command, dependencies) {
     let value;
     let collection = false;
@@ -70,10 +71,10 @@ export async function runCommand(command, dependencies) {
             value = await dependencies.client.isFollowing(command.username);
             break;
         case 'post-create':
-            value = await plan(dependencies, { kind: 'post-create', target: {}, text: command.text });
+            value = await plan(dependencies, { kind: 'post-create', target: {}, text: command.text }, command.media);
             break;
         case 'reply':
-            value = await plan(dependencies, { kind: 'reply', target: { postId: command.postId }, text: command.text });
+            value = await plan(dependencies, { kind: 'reply', target: { postId: command.postId }, text: command.text }, command.media);
             break;
         case 'like':
             value = await plan(dependencies, { kind: 'like', target: { postId: command.postId } });
@@ -97,9 +98,10 @@ export async function runCommand(command, dependencies) {
         return value.map((entry) => JSON.stringify(entry)).join('\n') + (value.length ? '\n' : '');
     return `${JSON.stringify(value)}\n`;
 }
-async function plan(dependencies, input) {
+async function plan(dependencies, input, mediaPaths) {
+    const media = mediaPaths === undefined ? undefined : await describeMedia(mediaPaths);
     const account = await dependencies.client.me();
-    return dependencies.planner.plan(input, account.id);
+    return dependencies.planner.plan({ ...input, ...(media === undefined ? {} : { media }) }, account.id);
 }
 export function createProductionApp(clientId) {
     const credentials = new MacOsKeychainStore();

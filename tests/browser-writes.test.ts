@@ -55,4 +55,10 @@ describe('Playwriter browser writes', () => {
     const challenged = setup([{ account: { ...account, url: 'https://x.com/account/access', snapshot: 'Verify your identity' }, outcome: 'unknown' }]);
     await expect(challenged.writer.execute(action('like'))).rejects.toMatchObject({ code: 'CHALLENGE_REQUIRED' });
   });
+
+  it('maps a visible upload rejection without submitting the post', async () => {
+    const rejected = setup([{ account, blocked: 'media' }]);
+    await expect(rejected.writer.execute(action('post-create'))).rejects.toMatchObject({ code: 'MEDIA_REJECTED' });
+    expect(rejected.operations).toHaveLength(1);
+  });
 });

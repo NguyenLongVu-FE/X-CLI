@@ -2,6 +2,8 @@ import { XCliError } from './errors.js';
 import { normalizeUsername, parsePostRef } from './identifiers.js';
 
 type WithPretty = { pretty: boolean };
+type WithMedia = { media?: string[] };
+type OptionValue = string | true | string[];
 export type ParsedCommand =
   | ({ kind: 'auth-login' | 'auth-status' | 'auth-logout' | 'me' } & WithPretty)
   | ({ kind: 'browser-list' | 'browser-status' } & WithPretty)
@@ -13,14 +15,14 @@ export type ParsedCommand =
   | ({ kind: 'post-delete'; postId: string } & WithPretty)
   | ({ kind: 'user-get'; username: string } & WithPretty)
   | ({ kind: 'following-check'; username: string } & WithPretty)
-  | ({ kind: 'post-create'; text: string } & WithPretty)
-  | ({ kind: 'reply'; postId: string; text: string } & WithPretty)
+  | ({ kind: 'post-create'; text: string } & WithMedia & WithPretty)
+  | ({ kind: 'reply'; postId: string; text: string } & WithMedia & WithPretty)
   | ({ kind: 'like' | 'unlike'; postId: string } & WithPretty)
   | ({ kind: 'follow' | 'unfollow'; username: string } & WithPretty)
   | ({ kind: 'bookmark-list' | 'dm-list'; limit: number } & WithPretty)
   | ({ kind: 'bookmark-add' | 'bookmark-remove'; postId: string } & WithPretty)
   | ({ kind: 'dm-read'; username: string; limit: number } & WithPretty)
-  | ({ kind: 'dm-send'; username: string; text: string } & WithPretty)
+  | ({ kind: 'dm-send'; username: string; text: string } & WithMedia & WithPretty)
   | ({ kind: 'bulk-plan'; inputPath: string } & WithPretty)
   | ({ kind: 'bulk-execute'; actionId: string } & WithPretty)
   | ({ kind: 'action-execute'; actionId: string } & WithPretty);
@@ -51,9 +53,11 @@ export function parseArgs(argv: readonly string[]): ParsedCommand {
   } else if (positional[0] === 'following' && positional[1] === 'check' && positional.length === 3) {
     result = { kind: 'following-check', username: normalizeUsername(positional[2]!), pretty };
   } else if (positional[0] === 'post' && positional[1] === 'create' && positional.length === 2) {
-    result = { kind: 'post-create', text: takeText(options), pretty };
+    const media = takeMedia(options);
+    result = { kind: 'post-create', text: takeText(options), ...(media.length === 0 ? {} : { media }), pretty };
   } else if (positional[0] === 'reply' && positional.length === 2) {
-    result = { kind: 'reply', postId: parsePostRef(positional[1]!), text: takeText(options), pretty };
+    const media = takeMedia(options);
+    result = { kind: 'reply', postId: parsePostRef(positional[1]!), text: takeText(options), ...(media.length === 0 ? {} : { media }), pretty };
   } else if (['like', 'unlike'].includes(positional[0] ?? '') && positional.length === 2) {
     result = { kind: positional[0] as 'like' | 'unlike', postId: parsePostRef(positional[1]!), pretty };
   } else if (['follow', 'unfollow'].includes(positional[0] ?? '') && positional.length === 2) {
@@ -67,7 +71,9 @@ export function parseArgs(argv: readonly string[]): ParsedCommand {
   } else if (positional[0] === 'dm' && positional[1] === 'read' && positional.length === 3) {
     result = { kind: 'dm-read', username: normalizeUsername(positional[2]!), limit: takeLimit(options), pretty };
   } else if (positional[0] === 'dm' && positional[1] === 'send' && positional.length === 3) {
-    result = { kind: 'dm-send', username: normalizeUsername(positional[2]!), text: takeText(options), pretty };
+    const media = takeMedia(options);
+    if (media.length > 1) throw new XCliError('INVALID_INPUT', 'DM accepts at most one media path');
+    result = { kind: 'dm-send', username: normalizeUsername(positional[2]!), text: takeText(options), ...(media.length === 0 ? {} : { media }), pretty };
   } else if (command === 'bulk plan') {
     result = { kind: 'bulk-plan', inputPath: takeInputPath(options), pretty };
   } else if (positional[0] === 'bulk' && positional[1] === 'execute' && positional.length === 3) {
@@ -82,29 +88,34 @@ export function parseArgs(argv: readonly string[]): ParsedCommand {
   return result;
 }
 
-function split(argv: readonly string[]): { positional: string[]; options: Map<string, string | true> } {
+function split(argv: readonly string[]): { positional: string[]; options: Map<string, OptionValue> } {
   const positional: string[] = [];
-  const options = new Map<string, string | true>();
+  const options = new Map<string, OptionValue>();
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index]!;
     if (!value.startsWith('--')) { positional.push(value); continue; }
     const name = value.slice(2);
-    if (name === 'pretty' || !['limit', 'text', 'input', 'browser'].includes(name)) { options.set(name, true); continue; }
+    if (name === 'pretty' || !['limit', 'text', 'input', 'browser', 'media'].includes(name)) { options.set(name, true); continue; }
     const next = argv[index + 1];
     if (next === undefined || next.startsWith('--')) throw new XCliError('INVALID_INPUT', `Missing value for --${name}`);
-    options.set(name, next);
+    if (name === 'media') {
+      const previous = options.get(name);
+      options.set(name, [...(Array.isArray(previous) ? previous : []), next]);
+    } else {
+      options.set(name, next);
+    }
     index += 1;
   }
   return { positional, options };
 }
 
-function takeBoolean(options: Map<string, string | true>, name: string): boolean {
+function takeBoolean(options: Map<string, OptionValue>, name: string): boolean {
   const value = options.get(name);
   options.delete(name);
   return value === true;
 }
 
-function takeLimit(options: Map<string, string | true>): number {
+function takeLimit(options: Map<string, OptionValue>): number {
   const value = options.get('limit');
   options.delete('limit');
   if (value === undefined) return 20;
@@ -113,7 +124,7 @@ function takeLimit(options: Map<string, string | true>): number {
   return limit;
 }
 
-function takeText(options: Map<string, string | true>): string {
+function takeText(options: Map<string, OptionValue>): string {
   const value = options.get('text');
   options.delete('text');
   if (typeof value !== 'string' || value.trim() === '') throw new XCliError('INVALID_INPUT', 'Post text is required');
@@ -121,18 +132,24 @@ function takeText(options: Map<string, string | true>): string {
   return value;
 }
 
-function takeInputPath(options: Map<string, string | true>): string {
+function takeInputPath(options: Map<string, OptionValue>): string {
   const value = options.get('input');
   options.delete('input');
   if (typeof value !== 'string' || value.trim() === '') throw new XCliError('INVALID_INPUT', 'Bulk input file is required');
   return value;
 }
 
-function takeBrowserKey(options: Map<string, string | true>): string {
+function takeBrowserKey(options: Map<string, OptionValue>): string {
   const value = options.get('browser');
   options.delete('browser');
   if (typeof value !== 'string' || !/^[^\s\u0000-\u001f\u007f]{1,200}$/.test(value)) {
     throw new XCliError('INVALID_INPUT', 'Browser key is required');
   }
   return value;
+}
+
+function takeMedia(options: Map<string, OptionValue>): string[] {
+  const value = options.get('media');
+  options.delete('media');
+  return Array.isArray(value) ? value : [];
 }

@@ -16,6 +16,7 @@ export class ActionPlanner {
             kind: input.kind,
             target: input.target,
             ...(input.text === undefined ? {} : { text: input.text }),
+            ...(input.media === undefined ? {} : { media: input.media }),
             createdAt,
             expiresAt: createdAt + 300_000
         };

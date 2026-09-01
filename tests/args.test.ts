@@ -13,6 +13,15 @@ describe('command parsing', () => {
     });
   });
 
+  it('keeps repeated media paths in their explicit order', () => {
+    expect(parseArgs(['post', 'create', '--text', 'hi', '--media', 'a.png', '--media', 'b.jpg'])).toMatchObject({
+      kind: 'post-create', media: ['a.png', 'b.jpg']
+    });
+    expect(parseArgs(['reply', '123', '--text', 'hi', '--media', 'a.png'])).toMatchObject({ media: ['a.png'] });
+    expect(parseArgs(['dm', 'send', '@sabrina', '--text', 'hi', '--media', 'a.png'])).toMatchObject({ media: ['a.png'] });
+    expect(() => parseArgs(['dm', 'send', '@sabrina', '--text', 'hi', '--media', 'a.png', '--media', 'b.jpg'])).toThrow('at most one media');
+  });
+
   it('rejects unsafe or ambiguous input', () => {
     expect(() => parseArgs(['timeline', 'home', '--limit', '0'])).toThrow('between 1 and 100');
     expect(() => parseArgs(['me', '--unknown'])).toThrow('Unknown option');

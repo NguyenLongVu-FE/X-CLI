@@ -63,7 +63,7 @@ export type BrowserWriteEnvelope = {
     resourceId?: string;
 } | {
     account: BrowserAccountObservation;
-    blocked: 'warning' | 'challenge';
+    blocked: 'warning' | 'challenge' | 'media';
 };
 export interface BrowserPost {
     id: string;

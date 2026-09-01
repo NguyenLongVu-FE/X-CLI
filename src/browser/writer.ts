@@ -1,5 +1,6 @@
 import type { ActionPreview, WriteResult } from '../actions/types.js';
 import { XCliError } from '../errors.js';
+import { verifyMedia } from '../media.js';
 import { classifyStatusObservation } from './client.js';
 import type { BrowserBindingStore } from './config.js';
 import type { BrowserOperation, BrowserWriteEnvelope } from './types.js';
@@ -13,7 +14,12 @@ type BindingReader = Pick<BrowserBindingStore, 'get'>;
 export class BrowserXWriter {
   constructor(private readonly runner: OperationRunner, private readonly bindings: BindingReader) {}
 
+  validate(action: ActionPreview): Promise<void> {
+    return verifyMedia(action.media ?? []);
+  }
+
   async execute(action: ActionPreview): Promise<WriteResult> {
+    await this.validate(action);
     const binding = await this.bindings.get();
     if (binding === null) throw new XCliError('INVALID_INPUT', 'No Chrome profile is bound; run x browser list and x browser bind first', 2);
     if (action.accountId.toLowerCase() !== binding.expectedUsername.toLowerCase()) {
@@ -24,6 +30,9 @@ export class BrowserXWriter {
     if ('blocked' in result) {
       if (result.blocked === 'challenge') {
         throw new XCliError('CHALLENGE_REQUIRED', 'X requires an account challenge to be completed in Chrome', 2);
+      }
+      if (result.blocked === 'media') {
+        throw new XCliError('MEDIA_REJECTED', 'X did not accept the approved media upload', 2);
       }
       throw new XCliError('ACTION_UNKNOWN', 'X displayed a warning before the action could be confirmed', 2);
     }

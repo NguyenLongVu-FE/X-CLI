@@ -9,6 +9,7 @@ export declare class BrowserXWriter {
     private readonly runner;
     private readonly bindings;
     constructor(runner: OperationRunner, bindings: BindingReader);
+    validate(action: ActionPreview): Promise<void>;
     execute(action: ActionPreview): Promise<WriteResult>;
 }
 export {};

@@ -113,6 +113,44 @@ describe('X browser read program', () => {
 });
 
 describe('X browser write program', () => {
+  it('uploads approved media once before one post submission', async () => {
+    const logs: string[] = [];
+    const uploads: string[][] = [];
+    let submissions = 0;
+    const page = {
+      goto: async () => undefined,
+      url: () => 'https://x.com/home',
+      locator: (selector: string) => {
+        if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
+        if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
+        if (selector.includes('tweetTextarea')) return { fill: async () => undefined };
+        if (selector === 'input[type="file"]') return { first: () => ({ setInputFiles: async (paths: string[]) => { uploads.push(paths); } }) };
+        if (selector.includes('attachments')) return { count: async () => 1 };
+        if (selector.includes('tweetButton')) return { first: () => ({ click: async () => { submissions += 1; } }) };
+        if (selector === '[data-testid="tweet"]') return { evaluateAll: async () => [{ url: '/imtamhn/status/99', text: 'Photo', authorUsername: 'imtamhn' }] };
+        throw new Error(`unexpected selector: ${selector}`);
+      },
+      waitForTimeout: async () => undefined,
+      removeAllListeners: () => undefined,
+      close: async () => undefined
+    };
+    const action = {
+      version: 1 as const, id: 'act_1', accountId: 'imtamhn', createdAt: 1, expiresAt: 2, hash: 'h', kind: 'post-create' as const,
+      target: {}, text: 'Photo', media: [{ path: '/tmp/photo.png', size: 3, sha256: 'abc' }]
+    };
+    const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
+    const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({ kind: 'write', action }));
+    await execute(
+      { newPage: async () => page }, async () => undefined, async () => [], async () => 'authenticated', {},
+      { log: (value: unknown) => { logs.push(String(value)); } }
+    );
+
+    const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
+    expect(result).toMatchObject({ outcome: 'confirmed', resourceId: '99' });
+    expect(uploads).toEqual([['/tmp/photo.png']]);
+    expect(submissions).toBe(1);
+  });
+
   it('stops before target navigation when the authenticated account is absent', async () => {
     const logs: string[] = [];
     const gotos: string[] = [];

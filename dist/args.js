@@ -36,10 +36,12 @@ export function parseArgs(argv) {
         result = { kind: 'following-check', username: normalizeUsername(positional[2]), pretty };
     }
     else if (positional[0] === 'post' && positional[1] === 'create' && positional.length === 2) {
-        result = { kind: 'post-create', text: takeText(options), pretty };
+        const media = takeMedia(options);
+        result = { kind: 'post-create', text: takeText(options), ...(media.length === 0 ? {} : { media }), pretty };
     }
     else if (positional[0] === 'reply' && positional.length === 2) {
-        result = { kind: 'reply', postId: parsePostRef(positional[1]), text: takeText(options), pretty };
+        const media = takeMedia(options);
+        result = { kind: 'reply', postId: parsePostRef(positional[1]), text: takeText(options), ...(media.length === 0 ? {} : { media }), pretty };
     }
     else if (['like', 'unlike'].includes(positional[0] ?? '') && positional.length === 2) {
         result = { kind: positional[0], postId: parsePostRef(positional[1]), pretty };
@@ -60,7 +62,10 @@ export function parseArgs(argv) {
         result = { kind: 'dm-read', username: normalizeUsername(positional[2]), limit: takeLimit(options), pretty };
     }
     else if (positional[0] === 'dm' && positional[1] === 'send' && positional.length === 3) {
-        result = { kind: 'dm-send', username: normalizeUsername(positional[2]), text: takeText(options), pretty };
+        const media = takeMedia(options);
+        if (media.length > 1)
+            throw new XCliError('INVALID_INPUT', 'DM accepts at most one media path');
+        result = { kind: 'dm-send', username: normalizeUsername(positional[2]), text: takeText(options), ...(media.length === 0 ? {} : { media }), pretty };
     }
     else if (command === 'bulk plan') {
         result = { kind: 'bulk-plan', inputPath: takeInputPath(options), pretty };
@@ -89,14 +94,20 @@ function split(argv) {
             continue;
         }
         const name = value.slice(2);
-        if (name === 'pretty' || !['limit', 'text', 'input', 'browser'].includes(name)) {
+        if (name === 'pretty' || !['limit', 'text', 'input', 'browser', 'media'].includes(name)) {
             options.set(name, true);
             continue;
         }
         const next = argv[index + 1];
         if (next === undefined || next.startsWith('--'))
             throw new XCliError('INVALID_INPUT', `Missing value for --${name}`);
-        options.set(name, next);
+        if (name === 'media') {
+            const previous = options.get(name);
+            options.set(name, [...(Array.isArray(previous) ? previous : []), next]);
+        }
+        else {
+            options.set(name, next);
+        }
         index += 1;
     }
     return { positional, options };
@@ -139,4 +150,9 @@ function takeBrowserKey(options) {
         throw new XCliError('INVALID_INPUT', 'Browser key is required');
     }
     return value;
+}
+function takeMedia(options) {
+    const value = options.get('media');
+    options.delete('media');
+    return Array.isArray(value) ? value : [];
 }

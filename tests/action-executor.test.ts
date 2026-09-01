@@ -35,4 +35,18 @@ describe('action executor', () => {
     const verified = new ActionExecutor(store, async () => 'me', { execute: async () => ({ outcome: 'confirmed' as const }) });
     await expect(verified.execute(action.id)).resolves.toMatchObject({ outcome: 'confirmed' });
   });
+
+  it('validates media before consuming the approved preview', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'x-executor-')); roots.push(root);
+    const store = new ActionStore(root, () => 1_000);
+    const action = await new ActionPlanner(store, () => 1_000).plan({ kind: 'post-create', target: {}, text: 'Photo' }, 'me');
+    const blocked = new ActionExecutor(store, async () => 'me', {
+      validate: async () => { throw new XCliError('ACTION_TAMPERED', 'changed media'); },
+      execute: async () => ({ outcome: 'confirmed' as const })
+    });
+    await expect(blocked.execute(action.id)).rejects.toMatchObject({ code: 'ACTION_TAMPERED' });
+
+    const verified = new ActionExecutor(store, async () => 'me', { execute: async () => ({ outcome: 'confirmed' as const }) });
+    await expect(verified.execute(action.id)).resolves.toMatchObject({ outcome: 'confirmed' });
+  });
 });

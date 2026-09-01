@@ -154,6 +154,8 @@ async function createPost(action, page, account) {
   if (blocked) return blocked;
   const textbox = page.locator('[data-testid="tweetTextarea_0"]');
   await textbox.fill(action.text, { timeout: 2000 });
+  const upload = await uploadApprovedMedia(page, action.media, account);
+  if (upload) return upload;
   await page.locator('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]').first().click({ timeout: 2000 });
   await page.waitForTimeout(750);
   const match = page.url().match(/\\/status\\/(\\d+)/);
@@ -173,6 +175,8 @@ async function replyToPost(action, page, account) {
   if (await article.count() === 0) return { account, outcome: "unknown" };
   await article.locator('[data-testid="reply"]').click({ timeout: 2000 });
   await page.locator('[data-testid="tweetTextarea_0"]').fill(action.text, { timeout: 2000 });
+  const upload = await uploadApprovedMedia(page, action.media, account);
+  if (upload) return upload;
   await page.locator('[data-testid="tweetButton"]').first().click({ timeout: 2000 });
   await page.waitForTimeout(750);
   const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
@@ -239,6 +243,22 @@ async function blockedWrite(page, account) {
     return { account, blocked: "warning" };
   }
   return null;
+}
+
+async function uploadApprovedMedia(page, media, account) {
+  if (!Array.isArray(media) || media.length === 0) return null;
+  try {
+    await page.locator('input[type="file"]').first().setInputFiles(media.map((entry) => entry.path));
+    await page.waitForTimeout(750);
+    const value = await snapshot({ page });
+    if (/unsupported|couldn.t upload|file is too large|media failed|invalid media/i.test(value)) {
+      return { account, blocked: "media" };
+    }
+    const previews = await page.locator('[data-testid="attachments"], [data-testid="media"]').count();
+    return previews > 0 ? null : { account, blocked: "media" };
+  } catch {
+    return { account, blocked: "media" };
+  }
 }
 
 function findPostArticle(page, id) {

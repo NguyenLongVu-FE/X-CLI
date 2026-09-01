@@ -7,7 +7,7 @@ Every write is a two-step operation: create an immutable preview, review it, the
 ## Supported environment
 
 - macOS
-- Node.js 22, 23, or 24 (with Corepack)
+- Node.js 22, 23, or 24 (including npm/npx)
 - Google Chrome with an English-language X interface
 - Playwriter extension enabled on a Chrome tab
 - The CLI and the signed-in Chrome profile on the same Mac
@@ -19,15 +19,14 @@ Windows, Linux, headless browsers, remote browser tunnels, non-English X interfa
 ```bash
 git clone https://github.com/NguyenLongVu-FE/X-CLI.git
 cd X-CLI
-corepack enable
-pnpm install --frozen-lockfile
-pnpm test:audit
-pnpm install:mac
+npx -y pnpm@11.22.0 install --frozen-lockfile
+npx -y pnpm@11.22.0 test:audit
+npx -y pnpm@11.22.0 install:mac
 export PATH="$HOME/.local/bin:$PATH"
 x --help
 ```
 
-Keep the cloned directory after installing because `~/.local/bin/x` points to its audited build. Never update that live clone in place. For an update, clone `main` into a new directory, run `corepack enable`, `pnpm install --frozen-lockfile`, and `pnpm install:mac` there; the installer audits and builds the new clone before atomically switching the symlink. Delete the old clone only after the new `x browser status` succeeds. A failed audit or build leaves the old symlink untouched.
+Keep the cloned directory after installing because `~/.local/bin/x` points to its audited build. Never update that live clone in place. For an update, clone `main` into a new directory and repeat the three pinned `npx ... pnpm@11.22.0` commands there; the installer audits and builds the new clone before atomically switching the symlink. Delete the old clone only after the new `x browser status` succeeds. A failed audit or build leaves the old symlink untouched.
 
 The direct npm/GitHub-tarball and package-manager global-link paths are intentionally unsupported because they do not preserve this repository's audited transitive dependency overrides. The unscoped npm package name `x-cli` belongs to another project.
 

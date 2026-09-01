@@ -1,10 +1,12 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { XCliError } from '../errors.js';
 import { BrowserLock } from './lock.js';
 import { systemExecFile } from './process.js';
 import { buildXProgram } from './x-program.js';
 const RESULT_PREFIX = '__XCLI_RESULT__';
+const BUNDLED_PLAYWRITER = fileURLToPath(new URL('../../node_modules/.bin/playwriter', import.meta.url));
 export class PlaywriterRunner {
     execFile;
     timeoutMs;
@@ -14,7 +16,7 @@ export class PlaywriterRunner {
     constructor(options = {}) {
         this.execFile = options.execFile ?? systemExecFile;
         this.timeoutMs = options.timeoutMs ?? 30_000;
-        this.binary = options.binary ?? 'playwriter';
+        this.binary = options.binary ?? BUNDLED_PLAYWRITER;
         this.buildProgram = options.buildProgram ?? buildXProgram;
         const lock = new BrowserLock(join(homedir(), 'Library', 'Application Support', 'x-cli', 'browser.lock'));
         this.withLock = options.withLock ?? ((work) => lock.withLock(work));

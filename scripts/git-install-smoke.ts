@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -16,6 +16,17 @@ try {
   await mkdir(bin);
   await run('pnpm', ['install:mac'], clone, { ...process.env, XCLI_BIN_DIR: bin });
   await run(join(bin, 'x'), ['--help'], clone);
+  const bundledPlaywriter = join(clone, 'node_modules', '.bin', 'playwriter');
+  await unlink(bundledPlaywriter);
+  await writeFile(bundledPlaywriter, '#!/bin/sh\nprintf \'KEY  TYPE  BROWSER  PROFILE\\ninstall:Chrome:test  extension  Chrome  test@example.com\\n\'\n');
+  await chmod(bundledPlaywriter, 0o755);
+  const runtimeBin = join(temporary, 'runtime-bin');
+  await mkdir(runtimeBin);
+  await symlink(process.execPath, join(runtimeBin, 'node'));
+  await run(join(bin, 'x'), ['browser', 'list'], clone, {
+    ...process.env,
+    PATH: `${runtimeBin}${delimiter}/usr/bin${delimiter}/bin`
+  });
   process.stdout.write('git install smoke passed\n');
 } finally {
   await rm(temporary, { recursive: true, force: true });

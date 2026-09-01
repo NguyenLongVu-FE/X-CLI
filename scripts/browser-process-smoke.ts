@@ -1,17 +1,19 @@
 import { strict as assert } from 'node:assert';
 import { execFile } from 'node:child_process';
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
 const root = await mkdtemp(join(tmpdir(), 'x-cli-browser-process-'));
 
 try {
-  const bin = join(root, 'bin');
+  const checkout = join(root, 'checkout');
+  const bin = join(checkout, 'node_modules', '.bin');
   const support = join(root, 'Library', 'Application Support', 'x-cli');
-  await Promise.all([mkdir(bin), mkdir(support, { recursive: true })]);
+  await Promise.all([mkdir(bin, { recursive: true }), mkdir(support, { recursive: true }), cp(join(process.cwd(), 'dist'), join(checkout, 'dist'), { recursive: true })]);
+  await symlink(join(process.cwd(), 'node_modules', 'zod'), join(checkout, 'node_modules', 'zod'), 'dir');
   const fake = join(bin, 'playwriter');
   await writeFile(fake, `#!/bin/sh
 if [ "$1" = "browser" ] && [ "$2" = "list" ]; then
@@ -26,8 +28,8 @@ fi
 `);
   await chmod(fake, 0o755);
   await writeFile(join(support, 'browser.json'), '{"expectedUsername":"imtamhn","browserKey":"install:Chrome:test"}\n', { mode: 0o600 });
-  const env = { ...process.env, HOME: root, PATH: `${bin}${delimiter}${process.env.PATH ?? ''}` };
-  const executable = join(process.cwd(), 'dist', 'cli.js');
+  const env = { ...process.env, HOME: root };
+  const executable = join(checkout, 'dist', 'cli.js');
   const listed = await exec(executable, ['browser', 'list'], { env });
   assert.match(listed.stdout, /"key":"install:Chrome:test"/);
   const status = await exec(executable, ['browser', 'status'], { env });

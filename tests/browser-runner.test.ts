@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { PlaywriterRunner } from '../src/browser/runner.js';
@@ -26,6 +27,15 @@ function lifecycle(output = '__XCLI_RESULT__{"username":"imtamhn"}\n'): {
 }
 
 describe('Playwriter runner', () => {
+  it('uses the audited repository Playwriter when no global command is installed', async () => {
+    const fake = lifecycle('KEY  TYPE  BROWSER  PROFILE\ninstall:Chrome:test  extension  Chrome  test@example.com\n');
+    const runner = new PlaywriterRunner({ execFile: fake.execFile, withLock: async (work) => work() });
+
+    await runner.listBrowsers();
+
+    expect(fake.calls[0]?.file).toBe(fileURLToPath(new URL('../node_modules/.bin/playwriter', import.meta.url)));
+  });
+
   it('uses the real X program when production options are omitted', async () => {
     const fake = lifecycle();
     const runner = new PlaywriterRunner({ execFile: fake.execFile, withLock: async (work) => work() });

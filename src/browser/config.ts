@@ -4,10 +4,17 @@ import { dirname } from 'node:path';
 
 import { XCliError } from '../errors.js';
 import { normalizeUsername } from '../identifiers.js';
+import type { BrowserDescriptor } from './types.js';
 
 export interface BrowserBinding {
   expectedUsername: string;
   browserKey: string;
+}
+
+export function assertSupportedBrowser(browser: BrowserDescriptor): void {
+  if (browser.type !== 'extension' || browser.browser !== 'Chrome' || browser.profile === '-' || !browser.key.startsWith('install:Chrome:')) {
+    throw new XCliError('INVALID_INPUT', 'X-CLI supports only a local Chrome profile connected through the Playwriter extension', 2);
+  }
 }
 
 export class BrowserBindingStore {

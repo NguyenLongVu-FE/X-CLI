@@ -19,7 +19,6 @@ export type ErrorCode =
   | 'TARGET_NOT_FOUND'
   | 'MEDIA_REJECTED'
   | 'ACTION_UNKNOWN'
-  | 'BULK_STOPPED'
   | 'INTERNAL_ERROR';
 
 export class XCliError extends Error {

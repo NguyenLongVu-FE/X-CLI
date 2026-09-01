@@ -4,7 +4,7 @@ import { ActionExecutor } from './actions/executor.js';
 import { ActionPlanner } from './actions/planner.js';
 import { ActionStore } from './actions/store.js';
 import { BrowserXClient } from './browser/client.js';
-import { BrowserBindingStore } from './browser/config.js';
+import { assertSupportedBrowser, BrowserBindingStore } from './browser/config.js';
 import { PlaywriterRunner } from './browser/runner.js';
 import { BrowserXWriter } from './browser/writer.js';
 import { BulkExecutor } from './bulk/executor.js';
@@ -149,9 +149,11 @@ export function createProductionApp() {
             list: () => client.listBrowsers(),
             bind: async (expectedUsername, browserKey) => {
                 const available = await client.listBrowsers();
-                if (!available.some((browser) => browser.key === browserKey)) {
+                const selected = available.find((browser) => browser.key === browserKey);
+                if (selected === undefined) {
                     throw new XCliError('BROWSER_DISCONNECTED', 'The selected Playwriter browser key is not available', 2);
                 }
+                assertSupportedBrowser(selected);
                 const binding = { expectedUsername, browserKey };
                 await bindings.set(binding);
                 return binding;

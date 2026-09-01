@@ -50,7 +50,7 @@ x dm list --limit 20
 x dm read @sabrina --limit 20
 ```
 
-`timeline home` aliases `feed for-you`; `timeline following` aliases `feed following`. Singular reads return JSON and collections return NDJSON. DM list output contains conversation metadata only; message bodies appear only for an explicitly named conversation and are excluded from browser diagnostics.
+`timeline home` aliases `feed for-you`; `timeline following` aliases `feed following`. Singular reads return JSON and collections return NDJSON. DM v1 operates only on existing, currently visible one-to-one conversations: it does not create a new conversation or search an off-screen inbox. DM list output contains conversation metadata only; message bodies appear only for an explicitly named conversation and are excluded from browser diagnostics.
 
 ## Preview and execute one write
 
@@ -98,7 +98,7 @@ x bulk plan --input ./actions.json
 x bulk execute act_0123456789abcdef0123456789abcdef
 ```
 
-Bulk previews expire after fifteen minutes. Execution is sequential with at least five seconds between actions. Each result is persisted before the next action. A challenge, warning, disconnect, account mismatch, or unknown outcome stops the batch; there is no resume or confirmation bypass.
+Bulk previews expire after fifteen minutes. Execution is sequential with at least five seconds between actions. Each result is persisted before the next action. A challenge, warning, disconnect, account mismatch, or unknown outcome stops the batch; there is no resume or confirmation bypass. A stopped batch is returned as normal JSON with `stopped: true`, so scripts must inspect that field.
 
 ## Agent skill
 
@@ -133,6 +133,6 @@ X_LIVE_BROWSER=1 X_LIVE_USERNAME=imtamhn X_LIVE_DM_USERNAME=sabrina pnpm test:li
 
 Automated tests cover parsing, binding, account guards, reads, write previews, media integrity, bookmarks, DM privacy, bulk limits, stop behavior, process cleanup, packaging, and skill installation. They do not prove that X's live DOM will never change.
 
-Live observations on the Tambot `itstamhn@gmail.com` Chrome profile confirmed the bound X identity `@imtamhn`, visible X pages, and bookmark controls. X currently redirects Direct Messages to `/i/chat` and shows a DM PIN challenge on that profile. DM list/read/send beyond the PIN screen are therefore **not live-verified** until the account owner unlocks DM in Chrome. No PIN bypass is implemented or attempted.
+Live observations on the Tambot `itstamhn@gmail.com` Chrome profile confirmed the bound X identity `@imtamhn`, visible X pages, and bookmark controls. X currently redirects Direct Messages to `/i/chat` and shows a DM PIN challenge on that profile. DM list/read/send beyond the PIN screen are therefore **not live-verified** until the account owner unlocks DM in Chrome. New DM composition, group DMs, and off-screen conversation traversal are outside DM v1. No PIN bypass is implemented or attempted.
 
 Reposts/quotes, lists, Spaces, notifications, background automation, target discovery, CAPTCHA bypass, challenge bypass, and warning bypass are outside this release. Live writes may become visible and cleanup may fail; never report cleanup as successful before X confirms the restored state.

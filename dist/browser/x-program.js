@@ -153,7 +153,10 @@ async function readVisibleUser(page, includeFollowing) {
   return { ...value, following: followText === "Following" };
 }
 
+let writeAttempted = false;
+
 async function runWriteAction(action, page, account) {
+  writeAttempted = false;
   try {
     if (action.kind === "post-create") return await createPost(action, page, account);
     if (action.kind === "reply") return await replyToPost(action, page, account);
@@ -164,24 +167,29 @@ async function runWriteAction(action, page, account) {
     if (action.kind === "dm-send") return await sendDirectMessage(action, page, account);
     return { account, outcome: "unknown" };
   } catch {
-    return { account, outcome: "unknown" };
+    return writeAttempted ? { account, outcome: "unknown" } : { account, failure: "ui-changed" };
   }
+}
+
+async function mutatingClick(control) {
+  writeAttempted = true;
+  await control.click({ timeout: 2000 });
 }
 
 async function createPost(action, page, account) {
   await openXPage(page, "https://x.com/compose/post");
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
+  const before = ownExactPostIds(await readVisiblePosts(page), action.text, account);
   const textbox = page.locator('[data-testid="tweetTextarea_0"]');
   await textbox.fill(action.text, { timeout: 2000 });
   const upload = await uploadApprovedMedia(page, action.media, account);
   if (upload) return upload;
-  await page.locator('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]').first().click({ timeout: 2000 });
+  await mutatingClick(page.locator('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]').first());
   await page.waitForTimeout(750);
   const match = page.url().match(/\\/status\\/(\\d+)/);
   if (match) return { account, outcome: "confirmed", resourceId: match[1] };
-  const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
-  const post = (await readVisiblePosts(page)).find((entry) => entry.text === action.text && String(entry.authorUsername || "").toLowerCase() === ownUsername);
+  const post = findNewOwnExactPost(await readVisiblePosts(page), action.text, account, before);
   const id = post && String(post.url || "").match(/\\/status\\/(\\d+)/)?.[1];
   return post ? { account, outcome: "confirmed", ...(id ? { resourceId: id } : {}) } : { account, outcome: "unknown" };
 }
@@ -192,15 +200,15 @@ async function replyToPost(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const article = findPostArticle(page, id);
-  if (await article.count() === 0) return { account, outcome: "unknown" };
+  if (await article.count() === 0) return { account, failure: "target-not-found" };
+  const before = ownExactPostIds(await readVisiblePosts(page), action.text, account);
   await article.locator('[data-testid="reply"]').click({ timeout: 2000 });
   await page.locator('[data-testid="tweetTextarea_0"]').fill(action.text, { timeout: 2000 });
   const upload = await uploadApprovedMedia(page, action.media, account);
   if (upload) return upload;
-  await page.locator('[data-testid="tweetButton"]').first().click({ timeout: 2000 });
+  await mutatingClick(page.locator('[data-testid="tweetButton"]').first());
   await page.waitForTimeout(750);
-  const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
-  const post = (await readVisiblePosts(page)).find((entry) => entry.text === action.text && String(entry.authorUsername || "").toLowerCase() === ownUsername);
+  const post = findNewOwnExactPost(await readVisiblePosts(page), action.text, account, before);
   const resourceId = post && String(post.url || "").match(/\\/status\\/(\\d+)/)?.[1];
   return post ? { account, outcome: "confirmed", ...(resourceId ? { resourceId } : {}) } : { account, outcome: "unknown" };
 }
@@ -211,10 +219,10 @@ async function deletePost(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const article = findPostArticle(page, id);
-  if (await article.count() === 0) return { account, outcome: "unknown" };
+  if (await article.count() === 0) return { account, failure: "target-not-found" };
   await article.locator('[data-testid="caret"]').click({ timeout: 2000 });
   await page.getByRole("menuitem", { name: "Delete", exact: true }).click({ timeout: 2000 });
-  await page.getByRole("button", { name: "Delete", exact: true }).click({ timeout: 2000 });
+  await mutatingClick(page.getByRole("button", { name: "Delete", exact: true }));
   await page.waitForTimeout(750);
   return { account, outcome: await article.count() === 0 ? "confirmed" : "unknown" };
 }
@@ -225,13 +233,13 @@ async function toggleLike(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const article = findPostArticle(page, id);
-  if (await article.count() === 0) return { account, outcome: "unknown" };
+  if (await article.count() === 0) return { account, failure: "target-not-found" };
   const before = action.kind === "like" ? "like" : "unlike";
   const after = action.kind === "like" ? "unlike" : "like";
   if (await article.locator('[data-testid="' + after + '"]').count() > 0) return { account, outcome: "confirmed" };
   const control = article.locator('[data-testid="' + before + '"]');
-  if (await control.count() === 0) return { account, outcome: "unknown" };
-  await control.click({ timeout: 2000 });
+  if (await control.count() === 0) return { account, failure: "ui-changed" };
+  await mutatingClick(control);
   await page.waitForTimeout(500);
   return { account, outcome: await article.locator('[data-testid="' + after + '"]').count() > 0 ? "confirmed" : "unknown" };
 }
@@ -242,13 +250,13 @@ async function toggleBookmark(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const article = findPostArticle(page, id);
-  if (await article.count() === 0) return { account, outcome: "unknown" };
+  if (await article.count() === 0) return { account, failure: "target-not-found" };
   const before = action.kind === "bookmark-add" ? "bookmark" : "removeBookmark";
   const after = action.kind === "bookmark-add" ? "removeBookmark" : "bookmark";
   if (await article.locator('[data-testid="' + after + '"]').count() > 0) return { account, outcome: "confirmed" };
   const control = article.locator('[data-testid="' + before + '"]');
-  if (await control.count() === 0) return { account, outcome: "unknown" };
-  await control.click({ timeout: 2000 });
+  if (await control.count() === 0) return { account, failure: "ui-changed" };
+  await mutatingClick(control);
   await page.waitForTimeout(500);
   return { account, outcome: await article.locator('[data-testid="' + after + '"]').count() > 0 ? "confirmed" : "unknown" };
 }
@@ -259,13 +267,19 @@ async function toggleFollow(action, page, account) {
   await openXPage(page, "https://x.com/" + username);
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
-  const button = page.locator('[data-testid$="-follow"], [data-testid$="-unfollow"]').first();
+  const target = await readVisibleUser(page, false);
+  if (target === null) return { account, failure: "target-not-found" };
+  if (target.username.slice(1).toLowerCase() !== username.toLowerCase()) return { account, failure: "ui-changed" };
+  const button = page.getByRole("button", { name: new RegExp("^(?:Follow|Following) @" + username + "$", "i") }).first();
   const before = await button.innerText({ timeout: 2000 }).catch(() => null);
   const desired = action.kind === "follow" ? "Following" : "Follow";
   if (before === desired) return { account, outcome: "confirmed" };
-  if (before !== (action.kind === "follow" ? "Follow" : "Following")) return { account, outcome: "unknown" };
-  await button.click({ timeout: 2000 });
-  if (action.kind === "unfollow") await page.getByRole("button", { name: "Unfollow", exact: true }).click({ timeout: 2000 });
+  if (before !== (action.kind === "follow" ? "Follow" : "Following")) return { account, failure: "ui-changed" };
+  if (action.kind === "follow") await mutatingClick(button);
+  else {
+    await button.click({ timeout: 2000 });
+    await mutatingClick(page.getByRole("button", { name: "Unfollow", exact: true }));
+  }
   await page.waitForTimeout(500);
   const after = await button.innerText({ timeout: 2000 }).catch(() => null);
   return { account, outcome: after === desired ? "confirmed" : "unknown" };
@@ -276,17 +290,18 @@ async function sendDirectMessage(action, page, account) {
   if (!/^[A-Za-z0-9_]{1,15}$/.test(String(username || ""))) return { account, outcome: "unknown" };
   await openXPage(page, "https://x.com/messages");
   if (await dmPinRequired(page)) return { account, blocked: "challenge" };
-  if (!await openDmConversation(page, username)) return { account, outcome: "unknown" };
+  if (!await openDmConversation(page, username)) return { account, failure: "target-not-found" };
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
+  const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
+  const before = (await readVisibleDmMessages(page, account)).filter((message) => message.text === action.text && message.senderUsername === ownUsername).length;
   await page.locator('[data-testid="dmComposerTextInput"], [data-testid="dm-composer-textinput"]').fill(action.text, { timeout: 2000 });
   const upload = await uploadApprovedMedia(page, action.media, account);
   if (upload) return upload;
-  await page.locator('[data-testid="dmComposerSendButton"], [data-testid="dm-composer-send-button"]').first().click({ timeout: 2000 });
+  await mutatingClick(page.locator('[data-testid="dmComposerSendButton"], [data-testid="dm-composer-send-button"]').first());
   await page.waitForTimeout(750);
-  const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
   const messages = await readVisibleDmMessages(page, account);
-  const confirmed = messages.some((message) => message.text === action.text && message.senderUsername === ownUsername);
+  const confirmed = messages.filter((message) => message.text === action.text && message.senderUsername === ownUsername).length > before;
   return { account, outcome: confirmed ? "confirmed" : "unknown" };
 }
 
@@ -371,6 +386,24 @@ function writePostId(action) {
   const value = action.target && action.target.postId;
   if (!/^\\d+$/.test(String(value || ""))) throw new Error("Invalid post target");
   return value;
+}
+
+function ownExactPostIds(posts, text, account) {
+  const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
+  return new Set(posts.flatMap((post) => {
+    if (post.text !== text || String(post.authorUsername || "").toLowerCase() !== ownUsername) return [];
+    const id = String(post.url || "").match(/\\/status\\/(\\d+)/)?.[1];
+    return id ? [id] : [];
+  }));
+}
+
+function findNewOwnExactPost(posts, text, account, before) {
+  const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
+  return posts.find((post) => {
+    if (post.text !== text || String(post.authorUsername || "").toLowerCase() !== ownUsername) return false;
+    const id = String(post.url || "").match(/\\/status\\/(\\d+)/)?.[1];
+    return id && !before.has(id);
+  });
 }
 
 function isMissingPage(value) {

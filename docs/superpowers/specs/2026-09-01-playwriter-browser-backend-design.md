@@ -89,7 +89,7 @@ Singular reads return one JSON object. Collections return one NDJSON object per 
 
 For You and Following navigate to `x.com/home`, select the requested tab, and scroll until the requested limit is reached or three consecutive scroll observations add no posts. The command deduplicates posts by canonical status URL and never silently substitutes one feed for the other.
 
-Search, post, user, bookmark, and DM reads navigate to their corresponding visible X pages. Direct URL or username commands verify the loaded target before extracting data. DM output is treated as sensitive and is never written to log files by the production driver.
+Search, post, user, bookmark, and DM reads navigate to their corresponding visible X pages. Direct URL or username commands verify the loaded target before extracting data. DM v1 is limited to existing, currently visible one-to-one conversations; new conversation composition, group DMs, and off-screen inbox traversal are not supported. DM output is treated as sensitive and is never written to log files by the production driver.
 
 ## Media behavior
 
@@ -113,7 +113,7 @@ The preview shows every action in order and a hash of the complete file. Executi
 
 ## Errors
 
-The CLI returns stable error codes for `PLAYWRITER_UNAVAILABLE`, `BROWSER_DISCONNECTED`, `LOGIN_REQUIRED`, `ACCOUNT_MISMATCH`, `X_UI_CHANGED`, `CHALLENGE_REQUIRED`, `TARGET_NOT_FOUND`, `MEDIA_REJECTED`, `ACTION_UNKNOWN`, `BULK_STOPPED`, and existing input or action-store errors.
+The CLI returns stable error codes for `PLAYWRITER_UNAVAILABLE`, `BROWSER_DISCONNECTED`, `LOGIN_REQUIRED`, `ACCOUNT_MISMATCH`, `X_UI_CHANGED`, `CHALLENGE_REQUIRED`, `TARGET_NOT_FOUND`, `MEDIA_REJECTED`, `ACTION_UNKNOWN`, and existing input or action-store errors. Bulk results expose `stopped: true` in their normal JSON contract.
 
 Selector failure is `X_UI_CHANGED`, not `TARGET_NOT_FOUND`, unless the target page visibly reports that the resource does not exist. Error JSON includes a concise recovery step but excludes cookies, page HTML, DM content, and credentials.
 
@@ -123,7 +123,7 @@ Automated tests cover parsing, normalization, action hashing, media hashing, bul
 
 CLI integration tests use a fake driver. They cover success plus disconnected Playwriter, logged-out Chrome, wrong account, CAPTCHA, changed selectors, failed upload, ambiguous writes, and bulk stop behavior. GitHub Actions runs typecheck, all automated tests, build, package smoke, skill validation, and installation smoke without X credentials.
 
-Live verification on Tambot covers browser status, account identity, For You, Following, search, post read, user read, bookmarks, and approved DM reads. Reversible write checks create and delete a post with media, like and unlike, follow and unfollow, bookmark and remove, and run a small reversible bulk plan. Each check captures before and after state and restores the original state. DM send runs only after explicit approval of recipient and message.
+Live verification on Tambot covers browser status, account identity, For You, Following, search, post read, user read, and bookmarks. DM reads require the owner to unlock the visible DM PIN first. Reversible write checks require approval of each exact preview; each check captures before and after state and restores the original state. DM send additionally requires explicit approval of recipient and message. Any check blocked by a PIN or missing exact approval is reported as an exception, never as passed.
 
 ## Migration and release
 

@@ -35,6 +35,13 @@ describe('browser process lock', () => {
     await expect(lock.withLock(async () => 'recovered')).resolves.toBe('recovered');
   });
 
+  it('treats a partially published or malformed lock as busy instead of deleting it', async () => {
+    const { path, lock } = await lockFixture(() => false);
+    await writeFile(path, '', { mode: 0o600 });
+    await expect(lock.withLock(async () => 'unsafe')).rejects.toMatchObject({ code: 'BROWSER_BUSY' });
+    expect(await readFile(path, 'utf8')).toBe('');
+  });
+
   it('does not delete a lock replaced by another owner', async () => {
     const { path, lock } = await lockFixture();
     await lock.withLock(async () => {

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { BrowserBindingStore } from '../src/browser/config.js';
+import { assertSupportedBrowser, BrowserBindingStore } from '../src/browser/config.js';
 
 const roots: string[] = [];
 afterEach(async () => Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))));
@@ -16,6 +16,15 @@ async function fixture(): Promise<{ root: string; path: string; store: BrowserBi
 }
 
 describe('browser account binding', () => {
+  it('accepts only a local Chrome extension profile', () => {
+    expect(() => assertSupportedBrowser({ key: 'install:Chrome:abc', type: 'extension', browser: 'Chrome', profile: 'tam@example.com' })).not.toThrow();
+    for (const descriptor of [
+      { key: 'headless', type: 'headless', browser: 'Chrome (Headless)', profile: '-' },
+      { key: 'cloud:abc', type: 'cloud', browser: 'Chrome', profile: 'tam@example.com' },
+      { key: 'direct:abc', type: 'direct', browser: 'Chrome', profile: 'tam@example.com' }
+    ]) expect(() => assertSupportedBrowser(descriptor)).toThrowError(expect.objectContaining({ code: 'INVALID_INPUT' }));
+  });
+
   it('returns null before an account is bound', async () => {
     const { store } = await fixture();
     expect(await store.get()).toBeNull();

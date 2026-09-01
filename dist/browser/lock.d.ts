@@ -11,6 +11,7 @@ export declare class BrowserLock {
     constructor(path: string, options?: BrowserLockOptions);
     withLock<T>(work: () => Promise<T>): Promise<T>;
     private acquire;
+    private publish;
     private release;
     private read;
 }

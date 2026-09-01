@@ -11,7 +11,7 @@ Use `x` to control the visible X interface through the explicitly bound Playwrit
 
 Run `x browser status` before account work. If no profile is bound, run `x browser list`, show the available keys, and ask the user which exact account/key to bind. Do not guess. Stop on `LOGIN_REQUIRED`, `ACCOUNT_MISMATCH`, `CHALLENGE_REQUIRED`, `BROWSER_DISCONNECTED`, `X_UI_CHANGED`, or any warning.
 
-Read commands include `x me`, `x feed for-you|following`, `x search posts`, `x post get`, `x user get`, `x following check`, `x bookmark list`, and `x dm list|read`. Collections are NDJSON. Only read a DM conversation the user explicitly identifies; do not repeat DM bodies in diagnostics.
+Read commands include `x me`, `x feed for-you|following`, `x search posts`, `x post get`, `x user get`, `x following check`, `x bookmark list`, and `x dm list|read`. Collections are NDJSON. DM v1 supports only an existing, currently visible one-to-one conversation; it does not create a new conversation, traverse an off-screen inbox, or support groups. Only read a DM conversation the user explicitly identifies; do not repeat DM bodies in diagnostics.
 
 ## Writes
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { XCliError } from '../errors.js';
 export class BrowserLock {
@@ -25,32 +25,50 @@ export class BrowserLock {
         }
     }
     async acquire(record) {
-        try {
-            await writeFile(this.path, JSON.stringify(record), { mode: 0o600, flag: 'wx' });
+        if (await this.publish(record))
             return;
-        }
-        catch (error) {
-            if (!hasCode(error, 'EEXIST'))
-                throw new XCliError('BROWSER_BUSY', 'Unable to acquire browser command lock', 2);
-        }
         const existing = await this.read();
-        if (existing !== null && this.isProcessAlive(existing.pid)) {
+        if (existing === null)
+            throw new XCliError('BROWSER_BUSY', 'The browser command lock is incomplete or unreadable', 2);
+        if (existing !== undefined && this.isProcessAlive(existing.pid)) {
             throw new XCliError('BROWSER_BUSY', 'Another X-CLI browser command is already running', 2);
         }
-        await unlink(this.path).catch((error) => {
-            if (!hasCode(error, 'ENOENT'))
-                throw error;
-        });
-        try {
-            await writeFile(this.path, JSON.stringify(record), { mode: 0o600, flag: 'wx' });
+        if (existing !== undefined) {
+            await unlink(this.path).catch((error) => {
+                if (!hasCode(error, 'ENOENT'))
+                    throw error;
+            });
         }
-        catch {
+        if (!await this.publish(record)) {
             throw new XCliError('BROWSER_BUSY', 'Another X-CLI browser command acquired the lock', 2);
+        }
+    }
+    async publish(record) {
+        const temporary = `${this.path}.${record.pid}.${record.token}.tmp`;
+        try {
+            await writeFile(temporary, JSON.stringify(record), { mode: 0o600, flag: 'wx' });
+            try {
+                await link(temporary, this.path);
+                return true;
+            }
+            catch (error) {
+                if (hasCode(error, 'EEXIST'))
+                    return false;
+                throw error;
+            }
+        }
+        catch (error) {
+            if (hasCode(error, 'EEXIST'))
+                return false;
+            throw new XCliError('BROWSER_BUSY', 'Unable to acquire browser command lock', 2);
+        }
+        finally {
+            await unlink(temporary).catch(() => undefined);
         }
     }
     async release(token) {
         const existing = await this.read();
-        if (existing?.token === token)
+        if (existing !== null && existing !== undefined && existing.token === token)
             await unlink(this.path).catch(() => undefined);
     }
     async read() {
@@ -60,7 +78,9 @@ export class BrowserLock {
                 return null;
             return value;
         }
-        catch {
+        catch (error) {
+            if (hasCode(error, 'ENOENT'))
+                return undefined;
             return null;
         }
     }

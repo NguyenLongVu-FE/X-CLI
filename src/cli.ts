@@ -24,7 +24,7 @@ Commands:
   follow|unfollow <username>
   following check <username>
   bookmark list|add|remove
-  dm list|read|send
+  dm list|read|send       Existing visible one-to-one conversations only
   bulk plan --input <file.json>
   bulk execute <action-id>
   action execute <action-id>

@@ -21,6 +21,11 @@ export class BrowserXWriter {
         }
         const result = await this.runner.run({ kind: 'write', action }, binding.browserKey);
         classifyStatusObservation(result.account, binding.expectedUsername);
+        if ('failure' in result) {
+            if (result.failure === 'target-not-found')
+                throw new XCliError('TARGET_NOT_FOUND', 'The approved X target was not found', 3);
+            throw new XCliError('X_UI_CHANGED', 'The approved X control was not found in the visible interface', 2);
+        }
         if ('blocked' in result) {
             if (result.blocked === 'challenge') {
                 throw new XCliError('CHALLENGE_REQUIRED', 'X requires an account challenge to be completed in Chrome', 2);

@@ -102,6 +102,21 @@ describe('X direct messages', () => {
     expect(marked(logs)).toMatchObject({ outcome: 'confirmed' });
     expect(submissions).toBe(1);
   });
+
+  it('does not confirm a send from an unchanged identical old message', async () => {
+    const logs: string[] = [];
+    const page = dmPage({
+      conversations: [{ username: 'sabrina', name: 'Sabrina', url: 'https://x.com/messages/123' }],
+      messages: () => [{ senderUsername: 'imtamhn', text: 'approved reply' }],
+      onSend: () => undefined
+    });
+    const action: ActionPreview = {
+      version: 1, id: 'act_1', accountId: 'imtamhn', createdAt: 1, expiresAt: 2, hash: 'h',
+      kind: 'dm-send', target: { username: 'sabrina', userId: 'sabrina' }, text: 'approved reply'
+    };
+    await executeProgram(buildXProgram({ kind: 'write', action }), page, logs);
+    expect(marked(logs)).toMatchObject({ outcome: 'unknown' });
+  });
 });
 
 function dmPage(options: {

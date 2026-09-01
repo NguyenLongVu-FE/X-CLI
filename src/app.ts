@@ -37,6 +37,8 @@ interface ReadCommands {
   getUser(username: string): Promise<{ id: string; name: string; username: string }>;
   isFollowing(username: string): Promise<{ username: string; userId: string; following: boolean }>;
   bookmarks(limit: number): Promise<unknown[]>;
+  listDmConversations(limit: number): Promise<unknown[]>;
+  readDmConversation(username: string, limit: number): Promise<unknown[]>;
 }
 interface Planner { plan(input: ActionInput, accountId: string): Promise<ActionPreview> }
 interface Executor { execute(id: string): Promise<WriteResult & { actionId: string; kind: ActionPreview['kind'] }> }
@@ -70,6 +72,11 @@ export async function runCommand(command: ParsedCommand, dependencies: AppDepend
     case 'bookmark-list': value = await dependencies.client.bookmarks(command.limit); collection = true; break;
     case 'bookmark-add': value = await plan(dependencies, { kind: 'bookmark-add', target: { postId: command.postId } }); break;
     case 'bookmark-remove': value = await plan(dependencies, { kind: 'bookmark-remove', target: { postId: command.postId } }); break;
+    case 'dm-list': value = await dependencies.client.listDmConversations(command.limit); collection = true; break;
+    case 'dm-read': value = await dependencies.client.readDmConversation(command.username, command.limit); collection = true; break;
+    case 'dm-send': value = await plan(dependencies, {
+      kind: 'dm-send', target: { username: command.username, userId: command.username }, text: command.text
+    }, command.media); break;
     case 'follow':
     case 'unfollow': {
       const target = await dependencies.client.getUser(command.username);

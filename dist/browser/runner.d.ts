@@ -20,4 +20,5 @@ export declare class PlaywriterRunner {
     private call;
 }
 export declare function parseMarkedJson<T>(stdout: string): T;
+export declare function redactDiagnostic(_value: string): string;
 export {};

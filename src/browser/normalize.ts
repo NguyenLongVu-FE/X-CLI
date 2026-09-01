@@ -1,5 +1,5 @@
 import { XCliError } from '../errors.js';
-import type { BrowserPost, BrowserUser } from './types.js';
+import type { BrowserPost, BrowserUser, DirectMessage, DmConversation } from './types.js';
 
 export function normalizeBrowserPosts(value: unknown, limit: number): BrowserPost[] {
   if (!Array.isArray(value)) throw changed();
@@ -39,6 +39,33 @@ export function normalizeBrowserUser(value: unknown): BrowserUser {
   };
   if (typeof entry.description === 'string' && entry.description.trim() !== '') user.description = entry.description;
   return user;
+}
+
+export function normalizeDmConversations(value: unknown, limit: number): DmConversation[] {
+  if (!Array.isArray(value)) throw changed();
+  return value.slice(0, limit).map((entry) => {
+    const source = record(entry);
+    const normalizedUsername = username(text(source.username));
+    const url = new URL(text(source.url), 'https://x.com');
+    if (!['x.com', 'www.x.com'].includes(url.hostname) || !/^(?:\/messages(?:\/[A-Za-z0-9_-]+)?|\/i\/chat)$/.test(url.pathname)) throw changed();
+    return { username: normalizedUsername, name: text(source.name), url: `https://x.com${url.pathname}` };
+  });
+}
+
+export function normalizeDirectMessages(value: unknown, expectedUsername: string, limit: number): DirectMessage[] {
+  const source = record(value);
+  const conversationUsername = username(text(source.conversationUsername));
+  if (conversationUsername !== username(expectedUsername) || !Array.isArray(source.messages)) throw changed();
+  return source.messages.slice(-limit).map((entry) => {
+    const message = record(entry);
+    const normalized: DirectMessage = {
+      conversationUsername,
+      senderUsername: username(text(message.senderUsername)),
+      text: text(message.text)
+    };
+    if (typeof message.sentAt === 'string' && !Number.isNaN(Date.parse(message.sentAt))) normalized.sentAt = message.sentAt;
+    return normalized;
+  });
 }
 
 function canonicalPostUrl(value: string): string {

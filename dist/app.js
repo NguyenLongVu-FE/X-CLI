@@ -92,6 +92,19 @@ export async function runCommand(command, dependencies) {
         case 'bookmark-remove':
             value = await plan(dependencies, { kind: 'bookmark-remove', target: { postId: command.postId } });
             break;
+        case 'dm-list':
+            value = await dependencies.client.listDmConversations(command.limit);
+            collection = true;
+            break;
+        case 'dm-read':
+            value = await dependencies.client.readDmConversation(command.username, command.limit);
+            collection = true;
+            break;
+        case 'dm-send':
+            value = await plan(dependencies, {
+                kind: 'dm-send', target: { username: command.username, userId: command.username }, text: command.text
+            }, command.media);
+            break;
         case 'follow':
         case 'unfollow': {
             const target = await dependencies.client.getUser(command.username);

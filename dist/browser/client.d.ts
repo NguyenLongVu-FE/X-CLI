@@ -1,5 +1,5 @@
 import type { BrowserBindingStore } from './config.js';
-import type { BrowserAccountObservation, BrowserDescriptor, BrowserOperation, BrowserPost, BrowserStatus, BrowserUser } from './types.js';
+import type { BrowserAccountObservation, BrowserDescriptor, BrowserOperation, BrowserPost, BrowserStatus, BrowserUser, DirectMessage, DmConversation } from './types.js';
 export type StatusObservation = BrowserAccountObservation;
 interface OperationRunner {
     listBrowsers(): Promise<BrowserDescriptor[]>;
@@ -30,6 +30,8 @@ export declare class BrowserXClient {
         following: boolean;
     }>;
     bookmarks(limit: number): Promise<BrowserPost[]>;
+    listDmConversations(limit: number): Promise<DmConversation[]>;
+    readDmConversation(username: string, limit: number): Promise<DirectMessage[]>;
     private observeStatus;
     private read;
     private requiredBinding;

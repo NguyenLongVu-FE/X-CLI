@@ -37,6 +37,8 @@ interface ReadCommands {
         following: boolean;
     }>;
     bookmarks(limit: number): Promise<unknown[]>;
+    listDmConversations(limit: number): Promise<unknown[]>;
+    readDmConversation(username: string, limit: number): Promise<unknown[]>;
 }
 interface Planner {
     plan(input: ActionInput, accountId: string): Promise<ActionPreview>;

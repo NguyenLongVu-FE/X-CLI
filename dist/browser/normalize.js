@@ -43,6 +43,35 @@ export function normalizeBrowserUser(value) {
         user.description = entry.description;
     return user;
 }
+export function normalizeDmConversations(value, limit) {
+    if (!Array.isArray(value))
+        throw changed();
+    return value.slice(0, limit).map((entry) => {
+        const source = record(entry);
+        const normalizedUsername = username(text(source.username));
+        const url = new URL(text(source.url), 'https://x.com');
+        if (!['x.com', 'www.x.com'].includes(url.hostname) || !/^(?:\/messages(?:\/[A-Za-z0-9_-]+)?|\/i\/chat)$/.test(url.pathname))
+            throw changed();
+        return { username: normalizedUsername, name: text(source.name), url: `https://x.com${url.pathname}` };
+    });
+}
+export function normalizeDirectMessages(value, expectedUsername, limit) {
+    const source = record(value);
+    const conversationUsername = username(text(source.conversationUsername));
+    if (conversationUsername !== username(expectedUsername) || !Array.isArray(source.messages))
+        throw changed();
+    return source.messages.slice(-limit).map((entry) => {
+        const message = record(entry);
+        const normalized = {
+            conversationUsername,
+            senderUsername: username(text(message.senderUsername)),
+            text: text(message.text)
+        };
+        if (typeof message.sentAt === 'string' && !Number.isNaN(Date.parse(message.sentAt)))
+            normalized.sentAt = message.sentAt;
+        return normalized;
+    });
+}
 function canonicalPostUrl(value) {
     let url;
     try {

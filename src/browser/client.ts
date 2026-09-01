@@ -1,7 +1,7 @@
 import { XCliError } from '../errors.js';
 import type { BrowserBinding, BrowserBindingStore } from './config.js';
-import { normalizeBrowserPost, normalizeBrowserPosts, normalizeBrowserUser } from './normalize.js';
-import type { BrowserAccountObservation, BrowserDescriptor, BrowserOperation, BrowserPost, BrowserReadEnvelope, BrowserStatus, BrowserUser } from './types.js';
+import { normalizeBrowserPost, normalizeBrowserPosts, normalizeBrowserUser, normalizeDirectMessages, normalizeDmConversations } from './normalize.js';
+import type { BrowserAccountObservation, BrowserDescriptor, BrowserOperation, BrowserPost, BrowserReadEnvelope, BrowserStatus, BrowserUser, DirectMessage, DmConversation } from './types.js';
 
 export type StatusObservation = BrowserAccountObservation;
 
@@ -17,7 +17,9 @@ type ReadInput =
   | { kind: 'read-post'; postId: string }
   | { kind: 'read-user'; username: string }
   | { kind: 'check-following'; username: string }
-  | { kind: 'read-bookmarks'; limit: number };
+  | { kind: 'read-bookmarks'; limit: number }
+  | { kind: 'list-dm'; limit: number }
+  | { kind: 'read-dm'; username: string; limit: number };
 
 export class BrowserXClient {
   constructor(private readonly runner: OperationRunner, private readonly bindings: BindingReader) {}
@@ -75,6 +77,14 @@ export class BrowserXClient {
     return normalizeBrowserPosts(await this.read({ kind: 'read-bookmarks', limit }), limit);
   }
 
+  async listDmConversations(limit: number): Promise<DmConversation[]> {
+    return normalizeDmConversations(await this.read({ kind: 'list-dm', limit }), limit);
+  }
+
+  async readDmConversation(username: string, limit: number): Promise<DirectMessage[]> {
+    return normalizeDirectMessages(await this.read({ kind: 'read-dm', username, limit }), username, limit);
+  }
+
   private async observeStatus(): Promise<{ status: BrowserStatus; observation: StatusObservation }> {
     const binding = await this.requiredBinding();
     const observation = await this.runner.run<StatusObservation>(
@@ -92,6 +102,7 @@ export class BrowserXClient {
       throw new XCliError('X_UI_CHANGED', 'X did not return an account observation', 2);
     }
     classifyStatusObservation(result.account, binding.expectedUsername);
+    if (result.state === 'challenge') throw new XCliError('CHALLENGE_REQUIRED', 'Unlock X Direct Messages in Chrome and try again', 2);
     if (result.state === 'not-found') throw new XCliError('TARGET_NOT_FOUND', 'The requested X resource was not found', 3);
     if (result.state !== 'ok' || result.value === null || result.value === undefined) {
       throw new XCliError('X_UI_CHANGED', 'X returned an unexpected visible page structure', 2);

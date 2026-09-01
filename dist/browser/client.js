@@ -1,5 +1,5 @@
 import { XCliError } from '../errors.js';
-import { normalizeBrowserPost, normalizeBrowserPosts, normalizeBrowserUser } from './normalize.js';
+import { normalizeBrowserPost, normalizeBrowserPosts, normalizeBrowserUser, normalizeDirectMessages, normalizeDmConversations } from './normalize.js';
 export class BrowserXClient {
     runner;
     bindings;
@@ -49,6 +49,12 @@ export class BrowserXClient {
     async bookmarks(limit) {
         return normalizeBrowserPosts(await this.read({ kind: 'read-bookmarks', limit }), limit);
     }
+    async listDmConversations(limit) {
+        return normalizeDmConversations(await this.read({ kind: 'list-dm', limit }), limit);
+    }
+    async readDmConversation(username, limit) {
+        return normalizeDirectMessages(await this.read({ kind: 'read-dm', username, limit }), username, limit);
+    }
     async observeStatus() {
         const binding = await this.requiredBinding();
         const observation = await this.runner.run({ kind: 'status', expectedUsername: binding.expectedUsername }, binding.browserKey);
@@ -62,6 +68,8 @@ export class BrowserXClient {
             throw new XCliError('X_UI_CHANGED', 'X did not return an account observation', 2);
         }
         classifyStatusObservation(result.account, binding.expectedUsername);
+        if (result.state === 'challenge')
+            throw new XCliError('CHALLENGE_REQUIRED', 'Unlock X Direct Messages in Chrome and try again', 2);
         if (result.state === 'not-found')
             throw new XCliError('TARGET_NOT_FOUND', 'The requested X resource was not found', 3);
         if (result.state !== 'ok' || result.value === null || result.value === undefined) {

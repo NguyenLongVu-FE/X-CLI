@@ -49,6 +49,20 @@ async function runXOperation(input, page, account) {
     await openXPage(page, "https://x.com/i/bookmarks");
     return { account, state: "ok", value: await collectPosts(page, input.limit) };
   }
+  if (input.kind === "list-dm" || input.kind === "read-dm") {
+    await openXPage(page, "https://x.com/messages");
+    if (await dmPinRequired(page)) return { account, state: "challenge" };
+    if (input.kind === "list-dm") {
+      return { account, state: "ok", value: (await readDmConversations(page)).slice(0, input.limit) };
+    }
+    const opened = await openDmConversation(page, input.username);
+    if (!opened) return { account, state: "not-found" };
+    return {
+      account,
+      state: "ok",
+      value: { conversationUsername: input.username, messages: (await readVisibleDmMessages(page, account)).slice(-input.limit) }
+    };
+  }
   if (input.kind === "read-post") {
     await openXPage(page, "https://x.com/i/web/status/" + encodeURIComponent(input.postId));
     const posts = await readVisiblePosts(page);
@@ -147,6 +161,7 @@ async function runWriteAction(action, page, account) {
     if (action.kind === "like" || action.kind === "unlike") return await toggleLike(action, page, account);
     if (action.kind === "bookmark-add" || action.kind === "bookmark-remove") return await toggleBookmark(action, page, account);
     if (action.kind === "follow" || action.kind === "unfollow") return await toggleFollow(action, page, account);
+    if (action.kind === "dm-send") return await sendDirectMessage(action, page, account);
     return { account, outcome: "unknown" };
   } catch {
     return { account, outcome: "unknown" };
@@ -254,6 +269,68 @@ async function toggleFollow(action, page, account) {
   await page.waitForTimeout(500);
   const after = await button.innerText({ timeout: 2000 }).catch(() => null);
   return { account, outcome: after === desired ? "confirmed" : "unknown" };
+}
+
+async function sendDirectMessage(action, page, account) {
+  const username = action.target && action.target.username;
+  if (!/^[A-Za-z0-9_]{1,15}$/.test(String(username || ""))) return { account, outcome: "unknown" };
+  await openXPage(page, "https://x.com/messages");
+  if (await dmPinRequired(page)) return { account, blocked: "challenge" };
+  if (!await openDmConversation(page, username)) return { account, outcome: "unknown" };
+  const blocked = await blockedWrite(page, account);
+  if (blocked) return blocked;
+  await page.locator('[data-testid="dmComposerTextInput"], [data-testid="dm-composer-textinput"]').fill(action.text, { timeout: 2000 });
+  const upload = await uploadApprovedMedia(page, action.media, account);
+  if (upload) return upload;
+  await page.locator('[data-testid="dmComposerSendButton"], [data-testid="dm-composer-send-button"]').first().click({ timeout: 2000 });
+  await page.waitForTimeout(750);
+  const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
+  const messages = await readVisibleDmMessages(page, account);
+  const confirmed = messages.some((message) => message.text === action.text && message.senderUsername === ownUsername);
+  return { account, outcome: confirmed ? "confirmed" : "unknown" };
+}
+
+async function dmPinRequired(page) {
+  return await page.locator('[data-testid="pin-code-input-container"]').count() > 0;
+}
+
+async function readDmConversations(page) {
+  const entries = page.locator('[data-testid="conversation"], [data-testid="dm-inbox-panel"] [role="button"]');
+  return entries.evaluateAll((nodes) => nodes.flatMap((node, index) => {
+    const lines = (node.innerText || "").split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean);
+    const handle = lines.find((line) => /^@[A-Za-z0-9_]{1,15}$/.test(line));
+    if (!handle) return [];
+    const username = handle.slice(1).toLowerCase();
+    const name = lines.find((line) => line !== handle) || username;
+    const link = node.closest("a") || node.querySelector("a");
+    const id = node.getAttribute("data-conversation-id");
+    const href = link?.getAttribute("href") || (id ? "/messages/" + id : "/messages");
+    return [{ username, name, url: new URL(href, "https://x.com").href, index }];
+  }));
+}
+
+async function openDmConversation(page, username) {
+  const conversations = await readDmConversations(page);
+  const match = conversations.find((entry) => entry.username.toLowerCase() === String(username).toLowerCase());
+  if (!match) return false;
+  const entries = page.locator('[data-testid="conversation"], [data-testid="dm-inbox-panel"] [role="button"]');
+  await entries.nth(match.index).click({ timeout: 2000 });
+  await page.waitForTimeout(500);
+  const title = await page.locator('[data-testid="dm-conversation-title"], [data-testid="DMDrawerHeader"], [data-testid="dm-conversation-header"]').first().innerText({ timeout: 2000 }).catch(() => null);
+  return typeof title === "string" && new RegExp("(^|\\s)@" + username + "($|\\s)", "i").test(title);
+}
+
+async function readVisibleDmMessages(page, account) {
+  const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
+  return page.locator('[data-testid="messageEntry"], [data-testid="dm-message"]').evaluateAll((nodes, own) => nodes.flatMap((node) => {
+    const label = node.getAttribute("aria-label") || "";
+    const handle = (node.getAttribute("data-sender-screen-name") || label.match(/@([A-Za-z0-9_]{1,15})/)?.[1] || (/^You\\b/i.test(label) ? own : "")).toLowerCase();
+    const body = node.querySelector('[data-testid="messageText"], [data-testid="dm-message-text"]');
+    const text = (body?.textContent || node.textContent || "").trim();
+    if (!handle || !text) return [];
+    const sentAt = node.querySelector("time")?.getAttribute("datetime") || undefined;
+    return [{ senderUsername: handle, text, sentAt }];
+  }), ownUsername);
 }
 
 async function blockedWrite(page, account) {

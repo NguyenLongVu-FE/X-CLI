@@ -88,6 +88,9 @@ export function parseMarkedJson(stdout) {
         throw new XCliError('X_UI_CHANGED', 'Playwriter returned an invalid X-CLI result', 2);
     }
 }
+export function redactDiagnostic(_value) {
+    return '[redacted sensitive browser diagnostic]';
+}
 function processDiagnostic(error) {
     if (typeof error !== 'object' || error === null)
         return '';

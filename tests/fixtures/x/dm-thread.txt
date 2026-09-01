@@ -1,0 +1,7 @@
+{
+  "conversationUsername":"sabrina",
+  "messages":[
+    {"senderUsername":"sabrina","text":"private message text","sentAt":"2026-09-01T01:00:00.000Z"},
+    {"senderUsername":"imtamhn","text":"approved reply","sentAt":"2026-09-01T01:01:00.000Z"}
+  ]
+}

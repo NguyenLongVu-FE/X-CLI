@@ -8,8 +8,8 @@ export type BrowserOperation =
   | { kind: 'read-user'; username: string; expectedUsername: string }
   | { kind: 'check-following'; username: string; expectedUsername: string }
   | { kind: 'read-bookmarks'; limit: number; expectedUsername: string }
-  | { kind: 'list-dm'; limit: number }
-  | { kind: 'read-dm'; username: string; limit: number }
+  | { kind: 'list-dm'; limit: number; expectedUsername: string }
+  | { kind: 'read-dm'; username: string; limit: number; expectedUsername: string }
   | { kind: 'write'; action: ActionPreview };
 
 export interface BrowserStatus {
@@ -27,7 +27,7 @@ export interface BrowserAccountObservation {
 
 export type BrowserReadEnvelope<T> =
   | { account: BrowserAccountObservation; state: 'ok'; value: T }
-  | { account: BrowserAccountObservation; state: 'not-found' };
+  | { account: BrowserAccountObservation; state: 'not-found' | 'challenge' };
 
 export type BrowserWriteEnvelope =
   | { account: BrowserAccountObservation; outcome: 'confirmed' | 'unknown'; resourceId?: string }
@@ -48,6 +48,19 @@ export interface BrowserUser {
   username: string;
   name: string;
   description?: string;
+}
+
+export interface DmConversation {
+  username: string;
+  name: string;
+  url: string;
+}
+
+export interface DirectMessage {
+  conversationUsername: string;
+  senderUsername: string;
+  text: string;
+  sentAt?: string;
 }
 
 export interface BrowserDescriptor {

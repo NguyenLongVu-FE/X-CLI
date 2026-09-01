@@ -18,7 +18,9 @@ function dependencies(): AppDependencies {
       searchPosts: async () => [{ id: '12', text: 'search' }], getPost: async (id) => ({ id, text: 'post' }),
       getUser: async (username) => ({ id: '2', name: 'User', username }),
       isFollowing: async (username) => ({ username, userId: '2', following: false }),
-      bookmarks: async () => [{ id: '42', text: 'saved' }]
+      bookmarks: async () => [{ id: '42', text: 'saved' }],
+      listDmConversations: async () => [{ username: 'sabrina', name: 'Sabrina', url: 'https://x.com/messages/123' }],
+      readDmConversation: async (username) => [{ conversationUsername: username, senderUsername: username, text: 'private' }]
     },
     planner: { plan: async (input, accountId) => ({ ...input, version: 1 as const, id: 'act_1', accountId, createdAt: 1, expiresAt: 2, hash: 'h' }) },
     executor: { execute: async (id) => ({ actionId: id, kind: 'like' as const, outcome: 'confirmed' as const }) }
@@ -42,13 +44,19 @@ describe('complete CLI wiring', () => {
     deps.executor.execute = async () => { executions += 1; throw new Error('must not execute'); };
     for (const argv of [
       ['post', 'create', '--text', 'hello'], ['post', 'delete', '10'], ['reply', '10', '--text', 'thanks'], ['like', '10'], ['unlike', '10'],
-      ['follow', '@tam'], ['unfollow', '@tam'], ['bookmark', 'add', '10'], ['bookmark', 'remove', '10']
+      ['follow', '@tam'], ['unfollow', '@tam'], ['bookmark', 'add', '10'], ['bookmark', 'remove', '10'],
+      ['dm', 'send', '@sabrina', '--text', 'approved']
     ]) expect(await runCommand(parseArgs(argv), deps)).toContain('"id":"act_1"');
     expect(executions).toBe(0);
   });
 
   it('returns bookmarks as NDJSON', async () => {
     expect(await runCommand(parseArgs(['bookmark', 'list', '--limit', '1']), dependencies())).toBe('{"id":"42","text":"saved"}\n');
+  });
+
+  it('returns DM list/read as NDJSON without sending', async () => {
+    expect(await runCommand(parseArgs(['dm', 'list', '--limit', '1']), dependencies())).toContain('"username":"sabrina"');
+    expect(await runCommand(parseArgs(['dm', 'read', '@sabrina', '--limit', '1']), dependencies())).toContain('"text":"private"');
   });
 
   it('executes only an explicit action command and supports auth commands', async () => {

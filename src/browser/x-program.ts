@@ -38,10 +38,10 @@ async function runXOperation(input, page, account) {
     await openXPage(page, "https://x.com/home");
     const tabName = input.feed === "for-you" ? "For you" : "Following";
     const tab = page.getByRole("tab", { name: tabName, exact: true });
-    let selected = await tab.getAttribute("aria-selected", { timeout: 2000 }).catch(() => null);
+    let selected = await tab.getAttribute("aria-selected", { timeout: 10000 }).catch(() => null);
     if (selected !== "true") {
-      await tab.click({ timeout: 2000 }).catch(() => undefined);
-      selected = await tab.getAttribute("aria-selected", { timeout: 2000 }).catch(() => null);
+      await tab.click({ timeout: 10000 }).catch(() => undefined);
+      selected = await waitForSelectedTab(page, tab) ? "true" : null;
     }
     const value = selected === "true" ? await collectPosts(page, input.limit) : null;
     return { account, state: "ok", value };
@@ -91,6 +91,16 @@ async function runXOperation(input, page, account) {
     return runWriteAction(input.action, page, account);
   }
   throw new Error("Unsupported X-CLI browser operation");
+}
+
+async function waitForSelectedTab(page, tab) {
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const remaining = deadline - Date.now();
+    if (await tab.getAttribute("aria-selected", { timeout: Math.min(500, remaining) }).catch(() => null) === "true") return true;
+    await page.waitForTimeout(Math.min(250, Math.max(1, deadline - Date.now())));
+  }
+  return false;
 }
 
 async function collectPosts(page, limit) {

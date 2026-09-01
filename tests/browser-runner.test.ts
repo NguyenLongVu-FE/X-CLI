@@ -53,7 +53,7 @@ describe('Playwriter runner', () => {
     expect(fake.calls.map(({ args }) => args.slice(0, 2))).toEqual([['session', 'new'], ['-s', '17'], ['session', 'delete']]);
     expect(fake.calls[0]!.args).toEqual(['session', 'new', '--browser', 'install:Chrome:abc']);
     expect(fake.calls.every(({ shell }) => shell === false)).toBe(true);
-    expect(fake.calls.every(({ timeout }) => timeout === 90_000)).toBe(true);
+    expect(fake.calls.every(({ timeout }) => timeout === 120_000)).toBe(true);
   });
 
   it('accepts the verbose session output emitted by Playwriter 0.4.0', async () => {

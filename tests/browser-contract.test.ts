@@ -155,6 +155,55 @@ describe('X browser read program', () => {
     const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
     expect(result).toMatchObject({ state: 'ok', value: [] });
   });
+
+  it('waits for the Following tab to become selected after one click', async () => {
+    const logs: string[] = [];
+    let clicks = 0;
+    let selectedChecks = 0;
+    const pollTimeouts: Array<number | undefined> = [];
+    const rawPost = { url: '/carol/status/303', text: 'following', authorUsername: 'carol' };
+    const page = {
+      goto: async () => undefined,
+      url: () => 'https://x.com/home',
+      getByRole: () => ({
+        waitFor: async () => undefined,
+        getAttribute: async (_name: string, options?: { timeout?: number }) => {
+          if (clicks === 0) return 'false';
+          pollTimeouts.push(options?.timeout);
+          selectedChecks += 1;
+          return selectedChecks >= 2 ? 'true' : 'false';
+        },
+        click: async () => { clicks += 1; }
+      }),
+      locator: (selector: string) => {
+        if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
+        if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
+        if (selector.includes('tweet')) return {
+          first: () => ({ waitFor: async () => undefined }),
+          evaluateAll: async () => [rawPost]
+        };
+        throw new Error(`unexpected selector: ${selector}`);
+      },
+      evaluate: async () => undefined,
+      waitForTimeout: async () => undefined,
+      removeAllListeners: () => undefined,
+      close: async () => undefined
+    };
+    const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
+    const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({
+      kind: 'read-feed', feed: 'following', limit: 1, expectedUsername: 'imtamhn'
+    }));
+
+    await execute(
+      { newPage: async () => page }, async () => undefined, async () => [], async () => 'authenticated', {},
+      { log: (value: unknown) => { logs.push(String(value)); } }
+    );
+
+    const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
+    expect(result).toMatchObject({ state: 'ok', value: [{ ...rawPost, url: 'https://x.com/carol/status/303' }] });
+    expect(clicks).toBe(1);
+    expect(pollTimeouts).toEqual([500, 500]);
+  });
 });
 
 describe('X browser write program', () => {

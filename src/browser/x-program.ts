@@ -340,8 +340,16 @@ async function openDmConversation(page, username) {
   const entries = page.locator('[data-testid="conversation"], [data-testid="dm-inbox-panel"] [role="button"]');
   await entries.nth(match.index).click({ timeout: 2000 });
   await page.waitForTimeout(500);
-  const title = await page.locator('[data-testid="dm-conversation-title"], [data-testid="DMDrawerHeader"], [data-testid="dm-conversation-header"]').first().innerText({ timeout: 2000 }).catch(() => null);
-  return typeof title === "string" && title.trim().toLowerCase() === "@" + String(username).toLowerCase();
+  const header = page.locator('[data-testid="dm-conversation-title"], [data-testid="DMDrawerHeader"], [data-testid="dm-conversation-header"]').first();
+  const title = await header.innerText({ timeout: 2000 }).catch(() => null);
+  const participantHrefs = await header.locator('a[href]').evaluateAll((links) => [...new Set(links.map((link) => link.getAttribute("href")).filter(Boolean))]).catch(() => []);
+  const expectedPath = "/" + String(username).toLowerCase();
+  const participants = participantHrefs.map((href) => {
+    try { return new URL(href, "https://x.com").pathname.replace(/\\/$/, "").toLowerCase(); }
+    catch { return ""; }
+  }).filter((path) => /^\\/[a-z0-9_]{1,15}$/.test(path));
+  return typeof title === "string" && title.trim().toLowerCase() === "@" + String(username).toLowerCase()
+    && participants.length === 1 && participants[0] === expectedPath;
 }
 
 async function readVisibleDmMessages(page, account) {
@@ -413,7 +421,7 @@ function findNewOwnExactPost(posts, text, account, before, attemptedAt) {
     if (post.text !== text || String(post.authorUsername || "").toLowerCase() !== ownUsername) return false;
     const id = String(post.url || "").match(/\\/status\\/(\\d+)/)?.[1];
     const createdAt = Date.parse(String(post.createdAt || ""));
-    return id && !before.has(id) && Number.isFinite(createdAt) && createdAt >= attemptedAt - 30000;
+    return id && !before.has(id) && Number.isFinite(createdAt) && createdAt >= attemptedAt;
   });
 }
 

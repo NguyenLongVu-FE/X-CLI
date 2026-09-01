@@ -136,3 +136,5 @@ Automated tests cover parsing, binding, account guards, reads, write previews, m
 Live observations on the Tambot `itstamhn@gmail.com` Chrome profile confirmed the bound X identity `@imtamhn`, visible X pages, and bookmark controls. X currently redirects Direct Messages to `/i/chat` and shows a DM PIN challenge on that profile. DM list/read/send beyond the PIN screen are therefore **not live-verified** until the account owner unlocks DM in Chrome. New DM composition, group DMs, and off-screen conversation traversal are outside DM v1. No PIN bypass is implemented or attempted.
 
 Reposts/quotes, lists, Spaces, notifications, background automation, target discovery, CAPTCHA bypass, challenge bypass, and warning bypass are outside this release. Live writes may become visible and cleanup may fail; never report cleanup as successful before X confirms the restored state.
+
+The CLI never deletes a stale browser lock automatically because doing so can race with a live replacement owner. If `BROWSER_BUSY` explicitly reports a stale lock, first confirm that no `x` or Playwriter command is running, then remove `~/Library/Application Support/x-cli/browser.lock` manually.

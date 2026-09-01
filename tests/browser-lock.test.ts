@@ -29,28 +29,11 @@ describe('browser process lock', () => {
     await first;
   });
 
-  it('recovers a lock whose process no longer exists', async () => {
+  it('preserves a stale lock instead of risking deletion of a replacement owner', async () => {
     const { path, lock } = await lockFixture(() => false);
     await writeFile(path, JSON.stringify({ pid: 999, startedAt: 1, token: 'stale' }), { mode: 0o600 });
-    await expect(lock.withLock(async () => 'recovered')).resolves.toBe('recovered');
-  });
-
-  it('allows only one contender to recover the same stale lock', async () => {
-    const { path } = await lockFixture(() => false);
-    await writeFile(path, JSON.stringify({ pid: 999, startedAt: 1, token: 'stale' }), { mode: 0o600 });
-    const first = new BrowserLock(path, { pid: 101, now: () => 1000, isProcessAlive: (pid) => pid === 101 || pid === 102 });
-    const second = new BrowserLock(path, { pid: 102, now: () => 1000, isProcessAlive: (pid) => pid === 101 || pid === 102 });
-    let entered = 0;
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
-    const attempts = [first, second].map((candidate) => candidate.withLock(async () => { entered += 1; await gate; return 'ok'; })
-      .then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(entered).toBe(1);
-    release();
-    const results = await Promise.all(attempts);
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    await expect(lock.withLock(async () => 'unsafe')).rejects.toMatchObject({ code: 'BROWSER_BUSY' });
+    expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({ pid: 999, startedAt: 1, token: 'stale' });
   });
 
   it('treats a partially published or malformed lock as busy instead of deleting it', async () => {

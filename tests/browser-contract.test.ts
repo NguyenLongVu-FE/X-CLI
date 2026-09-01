@@ -165,7 +165,7 @@ describe('X browser write program', () => {
         if (selector === 'input[type="file"]') return { first: () => ({ setInputFiles: async (paths: string[]) => { uploads.push(paths); } }) };
         if (selector.includes('attachments')) return { count: async () => 1 };
         if (selector.includes('tweetButton')) return { first: () => ({ click: async () => { submissions += 1; submitted = true; } }) };
-        if (selector === '[data-testid="tweet"]') return { evaluateAll: async () => submitted ? [{ url: '/imtamhn/status/99', text: 'Photo', authorUsername: 'imtamhn', createdAt: new Date().toISOString() }] : [] };
+        if (selector === '[data-testid="tweet"]') return { evaluateAll: async () => submitted ? [{ url: '/imtamhn/status/99', text: 'Photo', authorUsername: 'imtamhn', createdAt: new Date(Date.now() + 1000).toISOString() }] : [] };
         throw new Error(`unexpected selector: ${selector}`);
       },
       waitForTimeout: async () => undefined,
@@ -218,7 +218,7 @@ describe('X browser write program', () => {
   it('does not confirm an old identical post that appears only after submission', async () => {
     const logs: string[] = [];
     let submitted = false;
-    const old = { url: '/imtamhn/status/50', text: 'Same text', authorUsername: 'imtamhn', createdAt: '2020-01-01T00:00:00.000Z' };
+    const old = { url: '/imtamhn/status/50', text: 'Same text', authorUsername: 'imtamhn', createdAt: new Date(Date.now() - 1000).toISOString() };
     const page = {
       goto: async () => undefined,
       url: () => 'https://x.com/home',

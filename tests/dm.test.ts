@@ -134,6 +134,23 @@ describe('X direct messages', () => {
     expect(marked(logs)).toMatchObject({ failure: 'target-not-found' });
     expect(submissions).toBe(0);
   });
+
+  it('rejects an exact-handle group when multiple participant profiles are visible', async () => {
+    const logs: string[] = [];
+    let submissions = 0;
+    const page = dmPage({
+      conversations: [{ username: 'sabrina', name: 'Team', url: 'https://x.com/messages/123' }],
+      headerTitle: '@sabrina', participantHrefs: ['/sabrina', '/bob'],
+      onSend: () => { submissions += 1; }
+    });
+    const action: ActionPreview = {
+      version: 1, id: 'act_1', accountId: 'imtamhn', createdAt: 1, expiresAt: 2, hash: 'h',
+      kind: 'dm-send', target: { username: 'sabrina', userId: 'sabrina' }, text: 'approved reply'
+    };
+    await executeProgram(buildXProgram({ kind: 'write', action }), page, logs);
+    expect(marked(logs)).toMatchObject({ failure: 'target-not-found' });
+    expect(submissions).toBe(0);
+  });
 });
 
 function dmPage(options: {
@@ -143,6 +160,7 @@ function dmPage(options: {
   messages?: () => unknown[];
   onSend?: () => void;
   headerTitle?: string;
+  participantHrefs?: string[];
 }) {
   let waited = false;
   return {
@@ -156,7 +174,10 @@ function dmPage(options: {
         evaluateAll: async () => options.conversations ?? [],
         nth: () => ({ click: async () => undefined })
       };
-      if (selector.includes('dm-conversation-title')) return { first: () => ({ innerText: async () => options.headerTitle ?? '@sabrina' }) };
+      if (selector.includes('dm-conversation-title')) return { first: () => ({
+        innerText: async () => options.headerTitle ?? '@sabrina',
+        locator: () => ({ evaluateAll: async () => options.participantHrefs ?? ['/sabrina'] })
+      }) };
       if (selector.includes('messageEntry')) return { evaluateAll: async () => options.messages?.() ?? [] };
       if (selector.includes('dmComposerTextInput')) return { fill: async () => undefined };
       if (selector.includes('dmComposerSendButton')) return { first: () => ({ click: async () => options.onSend?.() }) };

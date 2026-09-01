@@ -27,20 +27,31 @@ export class BrowserLock {
     async acquire(record) {
         if (await this.publish(record))
             return;
-        const existing = await this.read();
-        if (existing === null)
-            throw new XCliError('BROWSER_BUSY', 'The browser command lock is incomplete or unreadable', 2);
-        if (existing !== undefined && this.isProcessAlive(existing.pid)) {
-            throw new XCliError('BROWSER_BUSY', 'Another X-CLI browser command is already running', 2);
+        await this.recoverStale(record);
+    }
+    async recoverStale(record) {
+        const recoveryPath = `${this.path}.recovery`;
+        try {
+            await writeFile(recoveryPath, record.token, { mode: 0o600, flag: 'wx' });
         }
-        if (existing !== undefined) {
-            await unlink(this.path).catch((error) => {
-                if (!hasCode(error, 'ENOENT'))
-                    throw error;
-            });
+        catch {
+            throw new XCliError('BROWSER_BUSY', 'Another X-CLI command is checking the browser lock', 2);
         }
-        if (!await this.publish(record)) {
-            throw new XCliError('BROWSER_BUSY', 'Another X-CLI browser command acquired the lock', 2);
+        try {
+            const existing = await this.read();
+            if (existing === null)
+                throw new XCliError('BROWSER_BUSY', 'The browser command lock is incomplete or unreadable', 2);
+            if (existing !== undefined && this.isProcessAlive(existing.pid)) {
+                throw new XCliError('BROWSER_BUSY', 'Another X-CLI browser command is already running', 2);
+            }
+            if (existing !== undefined)
+                await unlink(this.path);
+            if (!await this.publish(record)) {
+                throw new XCliError('BROWSER_BUSY', 'Another X-CLI browser command acquired the lock', 2);
+            }
+        }
+        finally {
+            await unlink(recoveryPath).catch(() => undefined);
         }
     }
     async publish(record) {

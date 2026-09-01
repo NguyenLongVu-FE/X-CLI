@@ -173,7 +173,9 @@ async function runWriteAction(action, page, account) {
 
 async function mutatingClick(control) {
   writeAttempted = true;
+  const attemptedAt = Date.now();
   await control.click({ timeout: 2000 });
+  return attemptedAt;
 }
 
 async function createPost(action, page, account) {
@@ -185,11 +187,11 @@ async function createPost(action, page, account) {
   await textbox.fill(action.text, { timeout: 2000 });
   const upload = await uploadApprovedMedia(page, action.media, account);
   if (upload) return upload;
-  await mutatingClick(page.locator('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]').first());
+  const attemptedAt = await mutatingClick(page.locator('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]').first());
   await page.waitForTimeout(750);
   const match = page.url().match(/\\/status\\/(\\d+)/);
   if (match) return { account, outcome: "confirmed", resourceId: match[1] };
-  const post = findNewOwnExactPost(await readVisiblePosts(page), action.text, account, before);
+  const post = findNewOwnExactPost(await readVisiblePosts(page), action.text, account, before, attemptedAt);
   const id = post && String(post.url || "").match(/\\/status\\/(\\d+)/)?.[1];
   return post ? { account, outcome: "confirmed", ...(id ? { resourceId: id } : {}) } : { account, outcome: "unknown" };
 }
@@ -200,15 +202,15 @@ async function replyToPost(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const article = findPostArticle(page, id);
-  if (await article.count() === 0) return { account, failure: "target-not-found" };
+  if (await article.count() === 0) return missingTargetFailure(page, account);
   const before = ownExactPostIds(await readVisiblePosts(page), action.text, account);
   await article.locator('[data-testid="reply"]').click({ timeout: 2000 });
   await page.locator('[data-testid="tweetTextarea_0"]').fill(action.text, { timeout: 2000 });
   const upload = await uploadApprovedMedia(page, action.media, account);
   if (upload) return upload;
-  await mutatingClick(page.locator('[data-testid="tweetButton"]').first());
+  const attemptedAt = await mutatingClick(page.locator('[data-testid="tweetButton"]').first());
   await page.waitForTimeout(750);
-  const post = findNewOwnExactPost(await readVisiblePosts(page), action.text, account, before);
+  const post = findNewOwnExactPost(await readVisiblePosts(page), action.text, account, before, attemptedAt);
   const resourceId = post && String(post.url || "").match(/\\/status\\/(\\d+)/)?.[1];
   return post ? { account, outcome: "confirmed", ...(resourceId ? { resourceId } : {}) } : { account, outcome: "unknown" };
 }
@@ -219,7 +221,7 @@ async function deletePost(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const article = findPostArticle(page, id);
-  if (await article.count() === 0) return { account, failure: "target-not-found" };
+  if (await article.count() === 0) return missingTargetFailure(page, account);
   await article.locator('[data-testid="caret"]').click({ timeout: 2000 });
   await page.getByRole("menuitem", { name: "Delete", exact: true }).click({ timeout: 2000 });
   await mutatingClick(page.getByRole("button", { name: "Delete", exact: true }));
@@ -233,7 +235,7 @@ async function toggleLike(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const article = findPostArticle(page, id);
-  if (await article.count() === 0) return { account, failure: "target-not-found" };
+  if (await article.count() === 0) return missingTargetFailure(page, account);
   const before = action.kind === "like" ? "like" : "unlike";
   const after = action.kind === "like" ? "unlike" : "like";
   if (await article.locator('[data-testid="' + after + '"]').count() > 0) return { account, outcome: "confirmed" };
@@ -250,7 +252,7 @@ async function toggleBookmark(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const article = findPostArticle(page, id);
-  if (await article.count() === 0) return { account, failure: "target-not-found" };
+  if (await article.count() === 0) return missingTargetFailure(page, account);
   const before = action.kind === "bookmark-add" ? "bookmark" : "removeBookmark";
   const after = action.kind === "bookmark-add" ? "removeBookmark" : "bookmark";
   if (await article.locator('[data-testid="' + after + '"]').count() > 0) return { account, outcome: "confirmed" };
@@ -268,7 +270,7 @@ async function toggleFollow(action, page, account) {
   const blocked = await blockedWrite(page, account);
   if (blocked) return blocked;
   const target = await readVisibleUser(page, false);
-  if (target === null) return { account, failure: "target-not-found" };
+  if (target === null) return missingTargetFailure(page, account);
   if (target.username.slice(1).toLowerCase() !== username.toLowerCase()) return { account, failure: "ui-changed" };
   const button = page.getByRole("button", { name: new RegExp("^(?:Follow|Following) @" + username + "$", "i") }).first();
   const before = await button.innerText({ timeout: 2000 }).catch(() => null);
@@ -316,8 +318,9 @@ async function readDmConversations(page) {
   const entries = page.locator('[data-testid="conversation"], [data-testid="dm-inbox-panel"] [role="button"]');
   return entries.evaluateAll((nodes) => nodes.flatMap((node, index) => {
     const lines = (node.innerText || "").split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean);
-    const handle = lines.find((line) => /^@[A-Za-z0-9_]{1,15}$/.test(line));
-    if (!handle) return [];
+    const handles = [...new Set(lines.filter((line) => /^@[A-Za-z0-9_]{1,15}$/.test(line)).map((line) => line.toLowerCase()))];
+    if (handles.length !== 1) return [];
+    const handle = handles[0];
     const username = handle.slice(1).toLowerCase();
     const name = lines.find((line) => line !== handle) || username;
     const link = node.closest("a") || node.querySelector("a");
@@ -335,7 +338,7 @@ async function openDmConversation(page, username) {
   await entries.nth(match.index).click({ timeout: 2000 });
   await page.waitForTimeout(500);
   const title = await page.locator('[data-testid="dm-conversation-title"], [data-testid="DMDrawerHeader"], [data-testid="dm-conversation-header"]').first().innerText({ timeout: 2000 }).catch(() => null);
-  return typeof title === "string" && new RegExp("(^|\\s)@" + username + "($|\\s)", "i").test(title);
+  return typeof title === "string" && title.trim().toLowerCase() === "@" + String(username).toLowerCase();
 }
 
 async function readVisibleDmMessages(page, account) {
@@ -360,6 +363,10 @@ async function blockedWrite(page, account) {
     return { account, blocked: "warning" };
   }
   return null;
+}
+
+async function missingTargetFailure(page, account) {
+  return { account, failure: isMissingPage(await snapshot({ page })) ? "target-not-found" : "ui-changed" };
 }
 
 async function uploadApprovedMedia(page, media, account) {
@@ -397,12 +404,13 @@ function ownExactPostIds(posts, text, account) {
   }));
 }
 
-function findNewOwnExactPost(posts, text, account, before) {
+function findNewOwnExactPost(posts, text, account, before, attemptedAt) {
   const ownUsername = account.profileHref && account.profileHref.replace(/^\\//, "").toLowerCase();
   return posts.find((post) => {
     if (post.text !== text || String(post.authorUsername || "").toLowerCase() !== ownUsername) return false;
     const id = String(post.url || "").match(/\\/status\\/(\\d+)/)?.[1];
-    return id && !before.has(id);
+    const createdAt = Date.parse(String(post.createdAt || ""));
+    return id && !before.has(id) && Number.isFinite(createdAt) && createdAt >= attemptedAt - 30000;
   });
 }
 

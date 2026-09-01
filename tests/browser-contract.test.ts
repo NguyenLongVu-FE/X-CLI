@@ -142,7 +142,7 @@ describe('X browser write program', () => {
     const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
     const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({ kind: 'write', action }));
     await execute(
-      { newPage: async () => page }, async () => undefined, async () => [], async () => 'authenticated', {},
+      { newPage: async () => page }, async () => undefined, async () => [], async () => 'This page doesn’t exist', {},
       { log: (value: unknown) => { logs.push(String(value)); } }
     );
     const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
@@ -165,7 +165,7 @@ describe('X browser write program', () => {
         if (selector === 'input[type="file"]') return { first: () => ({ setInputFiles: async (paths: string[]) => { uploads.push(paths); } }) };
         if (selector.includes('attachments')) return { count: async () => 1 };
         if (selector.includes('tweetButton')) return { first: () => ({ click: async () => { submissions += 1; submitted = true; } }) };
-        if (selector === '[data-testid="tweet"]') return { evaluateAll: async () => submitted ? [{ url: '/imtamhn/status/99', text: 'Photo', authorUsername: 'imtamhn' }] : [] };
+        if (selector === '[data-testid="tweet"]') return { evaluateAll: async () => submitted ? [{ url: '/imtamhn/status/99', text: 'Photo', authorUsername: 'imtamhn', createdAt: new Date().toISOString() }] : [] };
         throw new Error(`unexpected selector: ${selector}`);
       },
       waitForTimeout: async () => undefined,
@@ -213,6 +213,32 @@ describe('X browser write program', () => {
     await execute({ newPage: async () => page }, async () => undefined, async () => [], async () => 'authenticated', {}, { log: (value: unknown) => { logs.push(String(value)); } });
     const result = JSON.parse(logs.find((line) => line.startsWith('__XCLI_RESULT__'))!.slice('__XCLI_RESULT__'.length));
     expect(result).toMatchObject({ outcome: 'unknown' });
+  });
+
+  it('does not confirm an old identical post that appears only after submission', async () => {
+    const logs: string[] = [];
+    let submitted = false;
+    const old = { url: '/imtamhn/status/50', text: 'Same text', authorUsername: 'imtamhn', createdAt: '2020-01-01T00:00:00.000Z' };
+    const page = {
+      goto: async () => undefined,
+      url: () => 'https://x.com/home',
+      locator: (selector: string) => {
+        if (selector.includes('Profile')) return { getAttribute: async () => '/imtamhn' };
+        if (selector.includes('AccountSwitcher')) return { locator: () => ({ first: () => ({ getAttribute: async () => 'Tam' }) }) };
+        if (selector.includes('tweetTextarea')) return { fill: async () => undefined };
+        if (selector.includes('tweetButton')) return { first: () => ({ click: async () => { submitted = true; } }) };
+        if (selector === '[data-testid="tweet"]') return { evaluateAll: async () => submitted ? [old] : [] };
+        throw new Error(`unexpected selector: ${selector}`);
+      },
+      waitForTimeout: async () => undefined,
+      removeAllListeners: () => undefined,
+      close: async () => undefined
+    };
+    const action = { version: 1 as const, id: 'act_1', accountId: 'imtamhn', createdAt: 1, expiresAt: 2, hash: 'h', kind: 'post-create' as const, target: {}, text: 'Same text' };
+    const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => (...values: unknown[]) => Promise<void>;
+    const execute = new AsyncFunction('context', 'waitForPageLoad', 'getLatestLogs', 'snapshot', 'state', 'console', buildXProgram({ kind: 'write', action }));
+    await execute({ newPage: async () => page }, async () => undefined, async () => [], async () => 'authenticated', {}, { log: (value: unknown) => { logs.push(String(value)); } });
+    expect(markedWrite(logs)).toMatchObject({ outcome: 'unknown' });
   });
 
   it('classifies a composer failure before submission as UI drift', async () => {

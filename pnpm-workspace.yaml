@@ -1,5 +1,6 @@
 allowBuilds:
   esbuild: true
+  sharp: false
 minimumReleaseAgeExclude:
   - '@napi-rs/keyring-darwin-arm64@2.0.0'
   - '@napi-rs/keyring-darwin-x64@2.0.0'

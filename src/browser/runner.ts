@@ -1,0 +1,79 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+import { XCliError } from '../errors.js';
+import { BrowserLock } from './lock.js';
+import { systemExecFile, type ExecFileLike } from './process.js';
+import type { BrowserOperation } from './types.js';
+
+const RESULT_PREFIX = '__XCLI_RESULT__';
+
+interface PlaywriterRunnerOptions {
+  execFile?: ExecFileLike;
+  buildProgram: (operation: BrowserOperation) => string;
+  timeoutMs?: number;
+  binary?: string;
+  withLock?: <T>(work: () => Promise<T>) => Promise<T>;
+}
+
+export class PlaywriterRunner {
+  private readonly execFile: ExecFileLike;
+  private readonly timeoutMs: number;
+  private readonly binary: string;
+  private readonly withLock: <T>(work: () => Promise<T>) => Promise<T>;
+
+  constructor(private readonly options: PlaywriterRunnerOptions) {
+    this.execFile = options.execFile ?? systemExecFile;
+    this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.binary = options.binary ?? 'playwriter';
+    const lock = new BrowserLock(join(homedir(), 'Library', 'Application Support', 'x-cli', 'browser.lock'));
+    this.withLock = options.withLock ?? ((work) => lock.withLock(work));
+  }
+
+  run<T>(operation: BrowserOperation): Promise<T> {
+    return this.withLock(async () => this.runInSession<T>(operation));
+  }
+
+  private async runInSession<T>(operation: BrowserOperation): Promise<T> {
+    let sessionId: string | undefined;
+    try {
+      const created = await this.call(['session', 'new']);
+      sessionId = created.stdout.trim();
+      if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter returned an invalid session identifier', 2);
+      const result = await this.call(['-s', sessionId, '--timeout', String(this.timeoutMs), '-e', this.options.buildProgram(operation)]);
+      return parseMarkedJson<T>(result.stdout);
+    } finally {
+      if (sessionId !== undefined) await this.call(['session', 'delete', sessionId]).catch(() => undefined);
+    }
+  }
+
+  private async call(args: readonly string[]) {
+    try {
+      return await this.execFile(this.binary, args, { timeout: this.timeoutMs, shell: false });
+    } catch (error) {
+      if (hasCode(error, 'ENOENT')) throw new XCliError('PLAYWRITER_UNAVAILABLE', 'Playwriter executable is not available', 2);
+      const diagnostic = processDiagnostic(error);
+      if (/extension is not connected|no browser tabs have Playwriter enabled|browser connection/i.test(diagnostic)) {
+        throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter is not connected to a Chrome tab', 2);
+      }
+      throw new XCliError('BROWSER_DISCONNECTED', 'Playwriter browser command failed', 2);
+    }
+  }
+}
+
+export function parseMarkedJson<T>(stdout: string): T {
+  const marked = stdout.split(/\r?\n/).filter((line) => line.startsWith(RESULT_PREFIX));
+  if (marked.length !== 1) throw new XCliError('X_UI_CHANGED', 'Playwriter did not return exactly one X-CLI result', 2);
+  try { return JSON.parse(marked[0]!.slice(RESULT_PREFIX.length)) as T; }
+  catch { throw new XCliError('X_UI_CHANGED', 'Playwriter returned an invalid X-CLI result', 2); }
+}
+
+function processDiagnostic(error: unknown): string {
+  if (typeof error !== 'object' || error === null) return '';
+  const value = error as { message?: unknown; stderr?: unknown };
+  return `${typeof value.message === 'string' ? value.message : ''}\n${typeof value.stderr === 'string' ? value.stderr : ''}`;
+}
+
+function hasCode(error: unknown, code: string): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
+}

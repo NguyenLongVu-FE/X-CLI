@@ -5,12 +5,13 @@ import { XCliError } from '../errors.js';
 import { BrowserLock } from './lock.js';
 import { systemExecFile, type ExecFileLike } from './process.js';
 import type { BrowserDescriptor, BrowserOperation } from './types.js';
+import { buildXProgram } from './x-program.js';
 
 const RESULT_PREFIX = '__XCLI_RESULT__';
 
 interface PlaywriterRunnerOptions {
   execFile?: ExecFileLike;
-  buildProgram: (operation: BrowserOperation) => string;
+  buildProgram?: (operation: BrowserOperation) => string;
   timeoutMs?: number;
   binary?: string;
   withLock?: <T>(work: () => Promise<T>) => Promise<T>;
@@ -20,12 +21,14 @@ export class PlaywriterRunner {
   private readonly execFile: ExecFileLike;
   private readonly timeoutMs: number;
   private readonly binary: string;
+  private readonly buildProgram: (operation: BrowserOperation) => string;
   private readonly withLock: <T>(work: () => Promise<T>) => Promise<T>;
 
-  constructor(private readonly options: PlaywriterRunnerOptions) {
+  constructor(options: PlaywriterRunnerOptions = {}) {
     this.execFile = options.execFile ?? systemExecFile;
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.binary = options.binary ?? 'playwriter';
+    this.buildProgram = options.buildProgram ?? buildXProgram;
     const lock = new BrowserLock(join(homedir(), 'Library', 'Application Support', 'x-cli', 'browser.lock'));
     this.withLock = options.withLock ?? ((work) => lock.withLock(work));
   }
@@ -46,7 +49,7 @@ export class PlaywriterRunner {
     try {
       const created = await this.call(['session', 'new', '--browser', browserKey]);
       sessionId = parseSessionId(created.stdout);
-      const result = await this.call(['-s', sessionId, '--timeout', String(this.timeoutMs), '-e', this.options.buildProgram(operation)]);
+      const result = await this.call(['-s', sessionId, '--timeout', String(this.timeoutMs), '-e', this.buildProgram(operation)]);
       return parseMarkedJson<T>(result.stdout);
     } finally {
       if (sessionId !== undefined) await this.call(['session', 'delete', sessionId]).catch(() => undefined);
@@ -84,9 +87,12 @@ function parseSessionId(stdout: string): string {
 }
 
 export function parseMarkedJson<T>(stdout: string): T {
-  const marked = stdout.split(/\r?\n/).filter((line) => line.startsWith(RESULT_PREFIX));
+  const marked = stdout.split(/\r?\n/).flatMap((line) => {
+    const match = line.match(new RegExp(`^(?:\\[log\\]\\s+)?${RESULT_PREFIX}(.*)$`));
+    return match === null ? [] : [match[1]!];
+  });
   if (marked.length !== 1) throw new XCliError('X_UI_CHANGED', 'Playwriter did not return exactly one X-CLI result', 2);
-  try { return JSON.parse(marked[0]!.slice(RESULT_PREFIX.length)) as T; }
+  try { return JSON.parse(marked[0]!) as T; }
   catch { throw new XCliError('X_UI_CHANGED', 'Playwriter returned an invalid X-CLI result', 2); }
 }
 

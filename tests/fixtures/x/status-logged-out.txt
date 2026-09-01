@@ -1,0 +1,4 @@
+- main:
+  - heading "See what's happening in the world right now"
+  - link "Sign in"
+  - link "Create account"

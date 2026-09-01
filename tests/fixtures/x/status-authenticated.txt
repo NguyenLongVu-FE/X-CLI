@@ -1,0 +1,6 @@
+- navigation "Primary":
+  - link [data-testid="AppTabBar_Profile_Link"]
+  - button "Account menu" [data-testid="SideNav_AccountSwitcher_Button"]:
+    - image "Tam"
+- main:
+  - generic "Home timeline"

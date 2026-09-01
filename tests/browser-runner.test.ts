@@ -26,6 +26,15 @@ function lifecycle(output = '__XCLI_RESULT__{"username":"imtamhn"}\n'): {
 }
 
 describe('Playwriter runner', () => {
+  it('uses the real X program when production options are omitted', async () => {
+    const fake = lifecycle();
+    const runner = new PlaywriterRunner({ execFile: fake.execFile, withLock: async (work) => work() });
+
+    await expect(runner.run({ kind: 'status', expectedUsername: 'imtamhn' }, 'install:Chrome:abc')).resolves.toEqual({ username: 'imtamhn' });
+    const evaluation = fake.calls.find(({ args }) => args[0] === '-s');
+    expect(evaluation?.args.at(-1)).toContain('__XCLI_RESULT__');
+  });
+
   it('returns marked JSON and deletes the isolated session', async () => {
     const fake = lifecycle();
     const runner = new PlaywriterRunner({ execFile: fake.execFile, buildProgram: () => 'program', withLock: async (work) => work() });

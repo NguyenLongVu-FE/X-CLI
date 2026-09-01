@@ -1,0 +1,3 @@
+- main:
+  - heading "Verify your identity"
+  - text "Confirm your account before continuing"
